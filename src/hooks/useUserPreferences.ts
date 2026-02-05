@@ -20,6 +20,8 @@ export interface UserPreferences {
   totalExports: number;
   lastVisit: string;
   skillLevel: 'beginner' | 'intermediate' | 'advanced';
+  recentTools: string[]; // Recently used tool IDs
+  favoriteTools: string[]; // User-favorited tool IDs
 }
 
 const STORAGE_KEY = 'akeef_user_preferences';
@@ -37,6 +39,8 @@ const defaultPreferences: UserPreferences = {
   totalExports: 0,
   lastVisit: new Date().toISOString(),
   skillLevel: 'beginner',
+  recentTools: [],
+  favoriteTools: [],
 };
 
 function loadPreferences(): UserPreferences {
@@ -89,8 +93,17 @@ export function useUserPreferences() {
     setPreferences(prev => {
       const existing = prev.featureUsage[featureId];
       const now = new Date().toISOString();
+      
+      // Update recent tools if this is a panel
+      let recentTools = prev.recentTools;
+      if (featureId.startsWith('panel-')) {
+        const toolId = featureId.replace('panel-', '');
+        recentTools = [toolId, ...prev.recentTools.filter(t => t !== toolId)].slice(0, 5);
+      }
+      
       const updated = {
         ...prev,
+        recentTools,
         featureUsage: {
           ...prev.featureUsage,
           [featureId]: {
@@ -104,6 +117,16 @@ export function useUserPreferences() {
       updated.skillLevel = calculateSkillLevel(updated);
       return updated;
     });
+  }, []);
+
+  // Toggle favorite tool
+  const toggleFavoriteTool = useCallback((toolId: string) => {
+    setPreferences(prev => ({
+      ...prev,
+      favoriteTools: prev.favoriteTools.includes(toolId)
+        ? prev.favoriteTools.filter(t => t !== toolId)
+        : [...prev.favoriteTools, toolId].slice(0, 6),
+    }));
   }, []);
 
   // Mark tooltip as seen
@@ -196,5 +219,6 @@ export function useUserPreferences() {
     toggleTooltips,
     getSuggestions,
     getMostUsedFeatures,
+    toggleFavoriteTool,
   };
 }
