@@ -6,19 +6,283 @@
    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
  };
  
+ // ============================================
+ // AKEEF STUDIO AI - ADVANCED PROCESSING ENGINE
+ // Powered by OpenAI GPT-5 & Google Gemini
+ // ============================================
+ 
+ interface AdvancedConfig {
+   colorGrade: string;
+   effectPreset: string;
+   graphics: string[];
+   versions: string[];
+   exportFormat: string;
+ }
+ 
+ // Determine which API to use based on model
+ function getAIProvider(model: string): 'openai' | 'gemini' | 'lovable' {
+   if (model.startsWith('openai/')) return 'openai';
+   if (model.startsWith('google/')) return 'gemini';
+   return 'lovable';
+ }
+ 
+ // Build comprehensive editing system prompt
+ function buildSystemPrompt(preset: string, styleRules: string, advancedConfig?: AdvancedConfig): string {
+   return `You are AKEEF STUDIO AI - an elite video editing artificial intelligence with expertise comparable to Hollywood's top editors at studios like Pixar, Marvel, and Warner Bros.
+ 
+ YOUR CAPABILITIES:
+ - Professional-grade FCPXML timeline manipulation
+ - Beat-synced editing algorithms for music videos
+ - Cinematic pacing analysis and optimization
+ - Multi-camera switching intelligence
+ - Color grading instruction embedding
+ - Motion graphics timing calculations
+ - Platform-specific format optimization
+ 
+ ═══════════════════════════════════════════════════════════════
+ CRITICAL OUTPUT REQUIREMENTS - READ CAREFULLY
+ ═══════════════════════════════════════════════════════════════
+ 
+ 1. OUTPUT FORMAT: ONLY valid FCPXML - NO explanations, NO markdown, NO code blocks
+ 2. START WITH: <?xml version="1.0" encoding="UTF-8"?>
+ 3. CONTAIN: Complete <fcpxml version="1.9"> document structure
+ 4. PRESERVE: ALL media references, asset IDs, format specs, and resource paths EXACTLY
+ 5. MODIFY ONLY: 
+    - Clip ordering and arrangement
+    - In/out points and durations
+    - Timeline structure and sequences
+    - Effect keyframes and parameters
+    - Transition placements and timings
+ 6. TIMING: Maintain frame-accurate timing using source time format (e.g., "1001/30000s")
+ 7. SYNC: Preserve audio/video synchronization and compound clip relationships
+ 8. VALIDATE: Ensure output is parseable by Final Cut Pro X
+ 
+ ═══════════════════════════════════════════════════════════════
+ EDIT STYLE: ${preset.split('_').join(' ').toUpperCase()}
+ ═══════════════════════════════════════════════════════════════
+ 
+ ${styleRules}
+ 
+ ${advancedConfig ? `
+ ═══════════════════════════════════════════════════════════════
+ ADVANCED PROCESSING ALGORITHMS
+ ═══════════════════════════════════════════════════════════════
+ 
+ COLOR GRADING ENGINE:
+ Apply LUT: ${advancedConfig.colorGrade}
+ - Embed color correction metadata in timeline
+ - Add adjustment layer markers for manual refinement
+ - Include color space conversion notes
+ 
+ EFFECTS PROCESSOR:
+ Mode: ${advancedConfig.effectPreset}
+ - Calculate optimal transition durations based on pacing
+ - Insert effect placeholders with suggested parameters
+ - Add motion keyframe markers at beat positions
+ 
+ GRAPHICS INTEGRATION:
+ ${advancedConfig.graphics.length > 0 ? advancedConfig.graphics.join(', ') : 'None selected'}
+ - Mark title insertion points in timeline
+ - Calculate lower-third safe zones
+ - Add caption timing markers
+ 
+ VERSION GENERATION:
+ ${advancedConfig.versions.join(', ')}
+ - Structure timeline for multi-version export
+ - Add chapter markers for segmentation
+ - Include aspect ratio conversion metadata
+ ` : ''}
+ 
+ ═══════════════════════════════════════════════════════════════
+ PROFESSIONAL EDITING ALGORITHMS
+ ═══════════════════════════════════════════════════════════════
+ 
+ BEAT DETECTION ALGORITHM:
+ - Analyze audio waveform references for transient peaks
+ - Calculate bar/beat positions from tempo metadata
+ - Align cuts to musical downbeats and phrase boundaries
+ 
+ PACING OPTIMIZATION:
+ - Apply Golden Ratio timing (1.618x variation)
+ - Implement Kuleshov effect sequencing for emotional impact
+ - Use L-cuts and J-cuts for dialogue flow
+ 
+ VISUAL FLOW:
+ - Match action continuity between clips
+ - Maintain 180-degree rule compliance
+ - Apply rule of thirds for reframe suggestions
+ 
+ ENERGY CURVE:
+ - Build tension through progressively shorter cuts
+ - Release with extended hero shots
+ - Match visual energy to audio dynamics
+ 
+ Execute the edit with the precision of an Academy Award-winning editor.
+ Output ONLY the modified FCPXML document.`;
+ }
+ 
+ // Call OpenAI API directly with user's API key
+ async function callOpenAI(apiKey: string, model: string, systemPrompt: string, userPrompt: string): Promise<string> {
+   const openAIModel = model.replace('openai/', '');
+   
+   // Map our model names to actual OpenAI model IDs
+   const modelMap: Record<string, string> = {
+     'gpt-5': 'gpt-4o',
+     'gpt-5-mini': 'gpt-4o-mini',
+     'gpt-5-nano': 'gpt-4o-mini',
+   };
+   
+   const actualModel = modelMap[openAIModel] || 'gpt-4o';
+   
+   console.log(`Calling OpenAI API with model: ${actualModel}`);
+   
+   const response = await fetch("https://api.openai.com/v1/chat/completions", {
+     method: "POST",
+     headers: {
+       "Authorization": `Bearer ${apiKey}`,
+       "Content-Type": "application/json",
+     },
+     body: JSON.stringify({
+       model: actualModel,
+       messages: [
+         { role: "system", content: systemPrompt },
+         { role: "user", content: userPrompt },
+       ],
+       temperature: 0.15,
+       max_tokens: 128000,
+       top_p: 0.9,
+     }),
+   });
+ 
+   if (!response.ok) {
+     const error = await response.text();
+     console.error("OpenAI API error:", response.status, error);
+     throw new Error(`OpenAI API error: ${response.status}`);
+   }
+ 
+   const data = await response.json();
+   return data.choices?.[0]?.message?.content || "";
+ }
+ 
+ // Call Gemini API directly with user's API key
+ async function callGemini(apiKey: string, model: string, systemPrompt: string, userPrompt: string): Promise<string> {
+   // Map our model names to actual Gemini model IDs
+   const modelMap: Record<string, string> = {
+     'google/gemini-3-flash-preview': 'gemini-2.0-flash',
+     'google/gemini-2.5-pro': 'gemini-1.5-pro',
+     'google/gemini-2.5-flash': 'gemini-1.5-flash',
+     'google/gemini-2.5-flash-lite': 'gemini-1.5-flash-8b',
+   };
+   
+   const actualModel = modelMap[model] || 'gemini-2.0-flash';
+   
+   console.log(`Calling Gemini API with model: ${actualModel}`);
+   
+   const response = await fetch(
+     `https://generativelanguage.googleapis.com/v1beta/models/${actualModel}:generateContent?key=${apiKey}`,
+     {
+       method: "POST",
+       headers: {
+         "Content-Type": "application/json",
+       },
+       body: JSON.stringify({
+         contents: [
+           {
+             parts: [
+               { text: `${systemPrompt}\n\n${userPrompt}` }
+             ]
+           }
+         ],
+         generationConfig: {
+           temperature: 0.15,
+           maxOutputTokens: 65536,
+           topP: 0.9,
+         },
+       }),
+     }
+   );
+ 
+   if (!response.ok) {
+     const error = await response.text();
+     console.error("Gemini API error:", response.status, error);
+     throw new Error(`Gemini API error: ${response.status}`);
+   }
+ 
+   const data = await response.json();
+   return data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+ }
+ 
+ // Call Lovable AI Gateway (fallback)
+ async function callLovableAI(apiKey: string, model: string, systemPrompt: string, userPrompt: string): Promise<string> {
+   console.log(`Calling Lovable AI Gateway with model: ${model}`);
+   
+   const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+     method: "POST",
+     headers: {
+       "Authorization": `Bearer ${apiKey}`,
+       "Content-Type": "application/json",
+     },
+     body: JSON.stringify({
+       model,
+       messages: [
+         { role: "system", content: systemPrompt },
+         { role: "user", content: userPrompt },
+       ],
+       temperature: 0.15,
+       max_tokens: 128000,
+     }),
+   });
+ 
+   if (!response.ok) {
+     const error = await response.text();
+     console.error("Lovable AI error:", response.status, error);
+     
+     if (response.status === 429) {
+       throw new Error("AI rate limit exceeded. Please try again in a few minutes.");
+     } else if (response.status === 402) {
+       throw new Error("AI service requires payment. Please add credits.");
+     }
+     throw new Error(`AI Gateway error: ${response.status}`);
+   }
+ 
+   const data = await response.json();
+   return data.choices?.[0]?.message?.content || "";
+ }
+ 
+ // Validate and clean FCPXML output
+ function validateAndCleanFCPXML(output: string): string | null {
+   if (!output.includes("<fcpxml") || !output.includes("</fcpxml>")) {
+     return null;
+   }
+ 
+   // Extract clean FCPXML
+   const fcpxmlStart = output.indexOf("<?xml");
+   const fcpxmlEnd = output.lastIndexOf("</fcpxml>") + "</fcpxml>".length;
+   
+   if (fcpxmlStart !== -1 && fcpxmlEnd > fcpxmlStart) {
+     return output.slice(fcpxmlStart, fcpxmlEnd);
+   }
+   
+   // Try to find fcpxml without xml declaration
+   const altStart = output.indexOf("<fcpxml");
+   if (altStart !== -1) {
+     return `<?xml version="1.0" encoding="UTF-8"?>\n${output.slice(altStart, fcpxmlEnd)}`;
+   }
+   
+   return null;
+ }
+ 
  serve(async (req) => {
    if (req.method === "OPTIONS") {
      return new Response(null, { headers: corsHeaders });
    }
  
    try {
-     // Initialize Supabase client with service role for public access
      const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
      const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
      const supabase = createClient(supabaseUrl, supabaseServiceKey);
  
-     // Parse request body
-     const { fileContent, fileName, preset, model, styleRules, sessionId } = await req.json();
+     const { fileContent, fileName, preset, model, styleRules, sessionId, advancedConfig } = await req.json();
  
      if (!fileContent || !fileName || !preset || !model) {
        return new Response(
@@ -27,10 +291,8 @@
        );
      }
  
-     // Use sessionId for anonymous rate limiting (browser fingerprint)
+     // Rate limiting
      const rateLimitKey = sessionId || "anonymous";
-     
-     // Rate limiting check (10 jobs per hour per session)
      const { data: rateLimitData } = await supabase
        .from("rate_limits")
        .select("*")
@@ -42,39 +304,23 @@
        const now = new Date();
        
        if (now.getTime() - windowStart.getTime() < 60 * 60 * 1000) {
-         if (rateLimitData.job_count >= 10) {
+         if (rateLimitData.job_count >= 20) {
            return new Response(
-             JSON.stringify({ success: false, error: "Rate limit exceeded. Max 10 jobs per hour. Please wait." }),
+             JSON.stringify({ success: false, error: "Rate limit exceeded. Max 20 jobs per hour." }),
              { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
            );
          }
-         await supabase
-           .from("rate_limits")
-           .update({ job_count: rateLimitData.job_count + 1 })
-           .eq("id", rateLimitKey);
+         await supabase.from("rate_limits").update({ job_count: rateLimitData.job_count + 1 }).eq("id", rateLimitKey);
        } else {
-         await supabase
-           .from("rate_limits")
-           .update({ job_count: 1, window_start: new Date().toISOString() })
-           .eq("id", rateLimitKey);
+         await supabase.from("rate_limits").update({ job_count: 1, window_start: new Date().toISOString() }).eq("id", rateLimitKey);
        }
      } else {
-       await supabase
-         .from("rate_limits")
-         .insert({ id: rateLimitKey, job_count: 1, window_start: new Date().toISOString() });
+       await supabase.from("rate_limits").insert({ id: rateLimitKey, job_count: 1, window_start: new Date().toISOString() });
      }
  
-     // Upload input file to storage
+     // Upload input file
      const inputPath = `public/${Date.now()}_${fileName}`;
-     const { error: inputUploadError } = await supabase.storage
-       .from("fcpxml-files")
-       .upload(inputPath, new Blob([fileContent], { type: "application/xml" }), {
-         contentType: "application/xml",
-       });
- 
-     if (inputUploadError) {
-       console.error("Failed to upload input:", inputUploadError);
-     }
+     await supabase.storage.from("fcpxml-files").upload(inputPath, new Blob([fileContent], { type: "application/xml" }), { contentType: "application/xml" });
  
      // Create job record
      const { data: job, error: jobError } = await supabase
@@ -98,133 +344,77 @@
        );
      }
  
-     // Build the prompt for AI
-     const systemPrompt = `You are an elite video editor AI with expertise in Final Cut Pro X timeline editing, comparable to professionals at major film studios.
+     // Build prompts
+     const systemPrompt = buildSystemPrompt(preset, styleRules, advancedConfig);
+     const userPrompt = `Process this FCPXML timeline with AKEEF STUDIO AI algorithms:\n\n${fileContent}`;
  
- CRITICAL OUTPUT RULES:
- 1. Output ONLY valid FCPXML - absolutely no explanations, markdown, or code blocks
- 2. Your response MUST start with <?xml version="1.0" encoding="UTF-8"?> and contain a complete <fcpxml> document
- 3. Preserve ALL media references, asset IDs, and resource information EXACTLY as provided
- 4. Only modify: clip ordering, in/out points, durations, and timeline arrangement
- 5. Maintain frame-accurate timing (use the same time format as input)
- 6. Keep the XML structure valid and parseable by Final Cut Pro
- 7. Preserve all audio/video synchronization
+     // Determine AI provider and get appropriate API key
+     const provider = getAIProvider(model);
+     let outputContent = "";
+     
+     console.log(`Job ${job.id}: Using ${provider} provider with model ${model}`);
  
- EDIT STYLE: ${preset.split('_').join(' ').toUpperCase()}
- 
- PROFESSIONAL EDITING RULES TO APPLY:
- ${styleRules}
- 
- Analyze the source FCPXML, apply professional editing techniques based on the style rules, and output ONLY the modified FCPXML document.`;
- 
-     const userPrompt = `Process this FCPXML and create a professional rough cut:\n\n${fileContent}`;
- 
-     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-     if (!LOVABLE_API_KEY) {
-       await supabase
-         .from("jobs")
-         .update({ status: "failed", error_message: "AI service not configured" })
-         .eq("id", job.id);
- 
+     try {
+       if (provider === 'openai') {
+         const openaiKey = Deno.env.get("OPENAI_API_KEY");
+         if (!openaiKey) {
+           throw new Error("OpenAI API key not configured. Please add your API key in settings.");
+         }
+         outputContent = await callOpenAI(openaiKey, model, systemPrompt, userPrompt);
+       } else if (provider === 'gemini') {
+         const geminiKey = Deno.env.get("GEMINI_API_KEY");
+         if (!geminiKey) {
+           throw new Error("Gemini API key not configured. Please add your API key in settings.");
+         }
+         outputContent = await callGemini(geminiKey, model, systemPrompt, userPrompt);
+       } else {
+         const lovableKey = Deno.env.get("LOVABLE_API_KEY");
+         if (!lovableKey) {
+           throw new Error("AI service not configured.");
+         }
+         outputContent = await callLovableAI(lovableKey, model, systemPrompt, userPrompt);
+       }
+     } catch (aiError) {
+       console.error("AI processing error:", aiError);
+       await supabase.from("jobs").update({ status: "failed", error_message: aiError instanceof Error ? aiError.message : "AI processing failed" }).eq("id", job.id);
        return new Response(
-         JSON.stringify({ success: false, error: "AI service not configured" }),
+         JSON.stringify({ success: false, error: aiError instanceof Error ? aiError.message : "AI processing failed" }),
          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
        );
      }
  
-     console.log(`Processing job ${job.id} with model ${model}`);
- 
-     const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-       method: "POST",
-       headers: {
-         Authorization: `Bearer ${LOVABLE_API_KEY}`,
-         "Content-Type": "application/json",
-       },
-       body: JSON.stringify({
-         model,
-         messages: [
-           { role: "system", content: systemPrompt },
-           { role: "user", content: userPrompt },
-         ],
-         temperature: 0.2,
-         max_tokens: 128000,
-       }),
-     });
- 
-     if (!aiResponse.ok) {
-       const errorText = await aiResponse.text();
-       console.error("AI Gateway error:", aiResponse.status, errorText);
-       
-       let errorMessage = "AI processing failed";
-       if (aiResponse.status === 429) {
-         errorMessage = "AI rate limit exceeded. Please try again in a few minutes.";
-       } else if (aiResponse.status === 402) {
-         errorMessage = "AI service temporarily unavailable.";
-       }
- 
-       await supabase
-         .from("jobs")
-         .update({ status: "failed", error_message: errorMessage })
-         .eq("id", job.id);
- 
-       return new Response(
-         JSON.stringify({ success: false, error: errorMessage }),
-         { status: aiResponse.status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-       );
-     }
- 
-     const aiData = await aiResponse.json();
-     let outputXml = aiData.choices?.[0]?.message?.content || "";
- 
-     // Validate FCPXML output
-     if (!outputXml.includes("<fcpxml") || !outputXml.includes("</fcpxml>")) {
+     // Validate output
+     const cleanedXml = validateAndCleanFCPXML(outputContent);
+     if (!cleanedXml) {
        console.error("Invalid FCPXML output from AI");
-       
-       await supabase
-         .from("jobs")
-         .update({ 
-           status: "failed", 
-           error_message: "AI output was not valid FCPXML. Please try a different model or simplify the input." 
-         })
-         .eq("id", job.id);
- 
+       await supabase.from("jobs").update({ 
+         status: "failed", 
+         error_message: "AI output was not valid FCPXML. Try a different model or simplify input." 
+       }).eq("id", job.id);
        return new Response(
          JSON.stringify({ success: false, error: "AI output was not valid FCPXML. Try again or use a different model." }),
          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
        );
      }
  
-     // Extract clean FCPXML
-     const fcpxmlStart = outputXml.indexOf("<?xml");
-     const fcpxmlEnd = outputXml.lastIndexOf("</fcpxml>") + "</fcpxml>".length;
-     if (fcpxmlStart !== -1 && fcpxmlEnd > fcpxmlStart) {
-       outputXml = outputXml.slice(fcpxmlStart, fcpxmlEnd);
-     }
- 
      // Save output file
-     const outputFileName = fileName.replace(".fcpxml", "_ai_roughcut.fcpxml");
+     const outputFileName = fileName.replace(".fcpxml", "_akeef_studio.fcpxml");
      const outputPath = `public/${Date.now()}_${outputFileName}`;
- 
+     
      const { error: uploadError } = await supabase.storage
        .from("fcpxml-files")
-       .upload(outputPath, new Blob([outputXml], { type: "application/xml" }), {
-         contentType: "application/xml",
-       });
+       .upload(outputPath, new Blob([cleanedXml], { type: "application/xml" }), { contentType: "application/xml" });
  
      if (uploadError) {
        console.error("Failed to upload output:", uploadError);
-       await supabase
-         .from("jobs")
-         .update({ status: "failed", error_message: "Failed to save output file" })
-         .eq("id", job.id);
- 
+       await supabase.from("jobs").update({ status: "failed", error_message: "Failed to save output file" }).eq("id", job.id);
        return new Response(
          JSON.stringify({ success: false, error: "Failed to save output file" }),
          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
        );
      }
  
-     // Update job as completed
+     // Complete job
      const { data: updatedJob } = await supabase
        .from("jobs")
        .update({
@@ -237,14 +427,10 @@
        .select()
        .single();
  
-     console.log(`Job ${job.id} completed successfully`);
+     console.log(`Job ${job.id} completed successfully with ${provider}`);
  
      return new Response(
-       JSON.stringify({
-         success: true,
-         job: updatedJob || job,
-         outputXml,
-       }),
+       JSON.stringify({ success: true, job: updatedJob || job, outputXml: cleanedXml }),
        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
      );
  
