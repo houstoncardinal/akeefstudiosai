@@ -42,6 +42,9 @@ import KeyboardShortcutsOverlay from '@/components/studio/KeyboardShortcutsOverl
 import DraftRecoveryBanner from '@/components/studio/DraftRecoveryBanner';
 import ToolSectionTabs from '@/components/studio/ToolSectionTabs';
 import WelcomeGuide from '@/components/studio/WelcomeGuide';
+import QuickExportBar from '@/components/studio/QuickExportBar';
+import VisualWorkflowIndicator from '@/components/studio/VisualWorkflowIndicator';
+import AIInsightsPanel from '@/components/studio/AIInsightsPanel';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/components/ui/resizable';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -731,8 +734,66 @@ Apply all these settings to create a professional edit. Output valid FCPXML only
     </>
   );
 
+  // Quick export handler
+  const handleQuickExport = useCallback((filename: string) => {
+    if (!outputXml) return;
+    
+    const fmt = EXPORT_FORMATS.find(f => f.id === config.exportFormat);
+    const ext = fmt?.extension || '.fcpxml';
+    const isProjectFile = fmt?.codec === 'N/A';
+    const mime = isProjectFile ? 'application/xml' : 'video/mp4';
+    
+    const blob = new Blob([outputXml], { type: mime });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+    
+    addExport({
+      filename,
+      formatId: config.exportFormat,
+      formatName: fmt?.name || config.exportFormat,
+      extension: ext,
+      style: config.style,
+      model: config.model,
+      colorGrade: config.colorGrade,
+      sizeBytes: blob.size,
+      content: isProjectFile ? btoa(outputXml) : undefined,
+    });
+    recordExport();
+    trackFeatureUse('quick-export');
+    
+    toast({ title: 'Export started!', description: filename });
+  }, [outputXml, config, addExport, recordExport, trackFeatureUse, toast]);
+
   const renderSidePanel = () => (
     <>
+      {/* Visual Workflow Progress */}
+      <div className="mb-4">
+        <VisualWorkflowIndicator
+          hasFile={!!file}
+          hasStyle={config.style !== 'none'}
+          hasEffects={config.effectPreset !== 'none' || config.transitions.length > 0}
+          isProcessing={isProcessing}
+          hasOutput={showOutput}
+        />
+      </div>
+      
+      {/* AI Insights */}
+      <div className="mb-4">
+        <AIInsightsPanel
+          file={file}
+          colorGrade={config.colorGrade}
+          effectPreset={config.effectPreset}
+          transitions={config.transitions}
+          style={config.style}
+          directorIntent={config.directorIntent}
+          beatRules={config.beatRules}
+        />
+      </div>
+      
       {showOutput && (
         <div className="mb-4">
           <FeedbackPanel
@@ -1140,6 +1201,18 @@ Apply all these settings to create a professional edit. Output valid FCPXML only
           config={config}
         />
       )}
+
+      {/* Quick Export Bar - Sticky Bottom */}
+      <QuickExportBar
+        outputXml={outputXml}
+        isProcessing={isProcessing}
+        progress={progress}
+        canGenerate={canGenerate}
+        exportFormat={config.exportFormat}
+        onGenerate={handleGenerate}
+        onExport={handleQuickExport}
+        inputFilename={file?.name}
+      />
 
       {/* Welcome guide for new users */}
       {showWelcome && (
