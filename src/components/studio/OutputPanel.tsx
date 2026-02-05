@@ -21,8 +21,23 @@
    job: JobData | null;
    outputXml: string | null;
    onNewEdit: () => void;
-   config: Record<string, unknown>;
-   showOutput: boolean | "" | null;
+   config: {
+     style: string;
+     colorGrade: string;
+     effectPreset: string;
+     graphics: string[];
+     versions: string[];
+     exportFormat: string;
+     model: string;
+     customRules: string;
+     formatTools: string[];
+     transitions: string[];
+     shotAnalysisRules: Record<string, string[]>;
+     beatRules: string[];
+     directorIntent: string | null;
+     customIntent: string;
+   };
+   showOutput: boolean;
  }
  
  export default function OutputPanel({ job, outputXml, onNewEdit, config, showOutput }: OutputPanelProps) {

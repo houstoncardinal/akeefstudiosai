@@ -13,7 +13,7 @@
 import { type VideoFormat } from '@/lib/formats';
  import Header from '@/components/studio/Header';
  import SourcePanel from '@/components/studio/SourcePanel';
- import TimelinePanel from '@/components/studio/TimelinePanel';
+ import TimelineVisualizerAdvanced from '@/components/studio/TimelineVisualizerAdvanced';
  import StylePanel from '@/components/studio/StylePanel';
  import ColorPanel from '@/components/studio/ColorPanel';
  import EffectsPanel from '@/components/studio/EffectsPanel';
@@ -22,8 +22,12 @@ import { type VideoFormat } from '@/lib/formats';
  import ExportPanel from '@/components/studio/ExportPanel';
  import OutputPanel from '@/components/studio/OutputPanel';
  import ProcessingOverlay from '@/components/studio/ProcessingOverlay';
-import FormatToolsPanel from '@/components/studio/FormatToolsPanel';
-import CustomRulesEditor from '@/components/studio/CustomRulesEditor';
+ import FormatToolsPanel from '@/components/studio/FormatToolsPanel';
+ import CustomRulesEditor from '@/components/studio/CustomRulesEditor';
+ import TransitionsPanel from '@/components/studio/TransitionsPanel';
+ import ShotIntelligencePanel from '@/components/studio/ShotIntelligencePanel';
+ import BeatEnginePanel from '@/components/studio/BeatEnginePanel';
+ import DirectorIntentPanel from '@/components/studio/DirectorIntentPanel';
  import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
  import { 
    Palette, 
@@ -31,8 +35,12 @@ import CustomRulesEditor from '@/components/studio/CustomRulesEditor';
    Type, 
    Layers, 
    Wand2,
-  Zap,
-  Wrench
+   Zap,
+   Wrench,
+   ArrowRightLeft,
+   Eye,
+   Music,
+   Compass
  } from 'lucide-react';
  
  type ProcessingState = 'idle' | 'uploading' | 'processing' | 'completed' | 'failed';
@@ -60,6 +68,11 @@ import CustomRulesEditor from '@/components/studio/CustomRulesEditor';
    model: string;
    customRules: string;
   formatTools: string[];
+   transitions: string[];
+   shotAnalysisRules: Record<string, string[]>;
+   beatRules: string[];
+   directorIntent: string | null;
+   customIntent: string;
  }
  
  const getSessionId = () => {
@@ -89,10 +102,16 @@ import CustomRulesEditor from '@/components/studio/CustomRulesEditor';
      model: AI_MODELS[0].id,
      customRules: STYLE_PRESETS[0].defaultRules,
     formatTools: ['scene_detection', 'auto_color'],
+     transitions: [],
+     shotAnalysisRules: {},
+     beatRules: ['cut_on_beat', 'transition_on_downbeat'],
+     directorIntent: null,
+     customIntent: '',
    });
   
   // Detected format
   const [detectedFormat, setDetectedFormat] = useState<VideoFormat | null>(null);
+   const [detectedBPM, setDetectedBPM] = useState<number | null>(128);
  
    // Processing state
    const [processingState, setProcessingState] = useState<ProcessingState>('idle');
@@ -321,7 +340,7 @@ ${config.formatTools.length > 0 ? config.formatTools.join(', ') : 'Standard proc
  
    const isProcessing = processingState === 'uploading' || processingState === 'processing';
    const canGenerate = !!file && !isProcessing;
-   const showOutput = processingState === 'completed' && currentJob && outputXml;
+   const showOutput = !!(processingState === 'completed' && currentJob && outputXml);
 
   return (
    <div className="min-h-screen bg-background">
@@ -339,10 +358,11 @@ ${config.formatTools.length > 0 ? config.formatTools.join(', ') : 'Standard proc
                  disabled={isProcessing}
                   onFormatDetected={handleFormatDetected}
                />
-               <TimelinePanel 
+             <TimelineVisualizerAdvanced 
                  fileContent={fileContent}
                  isProcessing={isProcessing}
                   detectedFormat={detectedFormat}
+               detectedBPM={detectedBPM}
                />
              </div>
            </div>
@@ -398,6 +418,34 @@ ${config.formatTools.length > 0 ? config.formatTools.join(', ') : 'Standard proc
                       <Wrench className="w-4 h-4" />
                        AI Tools
                      </TabsTrigger>
+                    <TabsTrigger 
+                      value="transitions" 
+                      className="gap-2 text-xs px-4 py-2 rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg data-[state=active]:shadow-primary/20 transition-all"
+                    >
+                      <ArrowRightLeft className="w-4 h-4" />
+                       Transitions
+                    </TabsTrigger>
+                    <TabsTrigger 
+                      value="shots" 
+                      className="gap-2 text-xs px-4 py-2 rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg data-[state=active]:shadow-primary/20 transition-all"
+                    >
+                      <Eye className="w-4 h-4" />
+                       Shots
+                    </TabsTrigger>
+                    <TabsTrigger 
+                      value="beats" 
+                      className="gap-2 text-xs px-4 py-2 rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg data-[state=active]:shadow-primary/20 transition-all"
+                    >
+                      <Music className="w-4 h-4" />
+                       Beats
+                    </TabsTrigger>
+                    <TabsTrigger 
+                      value="intent" 
+                      className="gap-2 text-xs px-4 py-2 rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg data-[state=active]:shadow-primary/20 transition-all"
+                    >
+                      <Compass className="w-4 h-4" />
+                       Intent
+                    </TabsTrigger>
                     <TabsTrigger 
                       value="export" 
                       className="gap-2 text-xs px-4 py-2 rounded-lg data-[state=active]:bg-gradient-to-r data-[state=active]:from-primary data-[state=active]:to-accent data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg data-[state=active]:shadow-primary/20 transition-all"
@@ -455,6 +503,40 @@ ${config.formatTools.length > 0 ? config.formatTools.join(', ') : 'Standard proc
                          format={detectedFormat}
                          selectedTools={config.formatTools}
                          onToolsChange={(formatTools) => updateConfig({ formatTools })}
+                         disabled={isProcessing}
+                       />
+                     </TabsContent>
+                     
+                     <TabsContent value="transitions" className="m-0 h-full">
+                       <TransitionsPanel
+                         selectedTransitions={config.transitions}
+                         onTransitionsChange={(transitions) => updateConfig({ transitions })}
+                         disabled={isProcessing}
+                       />
+                     </TabsContent>
+                     
+                     <TabsContent value="shots" className="m-0 h-full">
+                       <ShotIntelligencePanel
+                         analysisRules={config.shotAnalysisRules}
+                         onRulesChange={(shotAnalysisRules) => updateConfig({ shotAnalysisRules })}
+                         disabled={isProcessing}
+                       />
+                     </TabsContent>
+                     
+                     <TabsContent value="beats" className="m-0 h-full">
+                       <BeatEnginePanel
+                         beatRules={config.beatRules}
+                         onBeatRulesChange={(beatRules) => updateConfig({ beatRules })}
+                         disabled={isProcessing}
+                       />
+                     </TabsContent>
+                     
+                     <TabsContent value="intent" className="m-0 h-full">
+                       <DirectorIntentPanel
+                         selectedIntent={config.directorIntent}
+                         customIntent={config.customIntent}
+                         onIntentChange={(directorIntent) => updateConfig({ directorIntent })}
+                         onCustomIntentChange={(customIntent) => updateConfig({ customIntent })}
                          disabled={isProcessing}
                        />
                      </TabsContent>
