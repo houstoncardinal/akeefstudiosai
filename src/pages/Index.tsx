@@ -51,6 +51,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import AdvancedSettingsPanel from '@/components/studio/AdvancedSettingsPanel';
 import TransitionsLibraryPanel from '@/components/studio/TransitionsLibraryPanel';
 import MotionEffectsPanel from '@/components/studio/MotionEffectsPanel';
+import { FrameCaptureProvider, useFrameCapture } from '@/components/studio/LUTPreviewSystem';
 import { type AdvancedSettings, DEFAULT_ADVANCED_SETTINGS } from '@/lib/advancedPresets';
 import {
   Palette,
@@ -228,6 +229,19 @@ export default function Index() {
   const [selectedTransitionsLib, setSelectedTransitionsLib] = useState<string[]>([]);
   const previewVideoRef = useRef<HTMLVideoElement | null>(null);
   const lutThumbnails = useLiveLUTThumbnails(previewVideoRef, CINEMATIC_LUTS, { enabled: !!file });
+  
+  // Frame capture for LUT preview system
+  const { currentFrame, startCapturing, stopCapturing } = useFrameCapture(previewVideoRef);
+  
+  // Start/stop frame capture based on file presence
+  useEffect(() => {
+    if (file && previewVideoRef.current) {
+      startCapturing();
+    } else {
+      stopCapturing();
+    }
+    return () => stopCapturing();
+  }, [file, startCapturing, stopCapturing]);
 
   // Processing state
   const [processingState, setProcessingState] = useState<ProcessingState>('idle');
@@ -628,6 +642,7 @@ Apply all these settings to create a professional edit. Output valid FCPXML only
             onUndo={undoColor}
             onRedo={redoColor}
             disabled={isProcessing}
+            currentFrame={currentFrame}
           />
         </PanelWrapper>
       </TabsContent>
