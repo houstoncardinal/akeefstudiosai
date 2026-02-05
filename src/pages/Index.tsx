@@ -14,6 +14,7 @@ import { type VideoFormat } from '@/lib/formats';
  import Header from '@/components/studio/Header';
  import SourcePanel from '@/components/studio/SourcePanel';
 import TimelineVisualizerDetailed from '@/components/studio/TimelineVisualizerDetailed';
+import VideoPreviewPanel from '@/components/studio/VideoPreviewPanel';
  import StylePanel from '@/components/studio/StylePanel';
  import ColorPanel from '@/components/studio/ColorPanel';
  import EffectsPanel from '@/components/studio/EffectsPanel';
@@ -164,6 +165,10 @@ import CustomRulesEditorEnhanced from '@/components/studio/CustomRulesEditorEnha
      const effects = EFFECT_PRESETS.find(e => e.id === config.effectPreset);
      const graphics = config.graphics.map(g => GRAPHICS_TEMPLATES.find(t => t.id === g)).filter(Boolean);
      const versions = config.versions.map(v => VERSION_TYPES.find(t => t.id === v)).filter(Boolean);
+     const directorIntent = config.directorIntent ? STYLE_PRESETS.find(s => s.id === config.directorIntent) : null;
+     const transitions = config.transitions || [];
+     const beatRules = config.beatRules || [];
+     const shotRules = config.shotAnalysisRules || {};
      return `
  === AKEEF STUDIO AI - ADVANCED EDIT CONFIGURATION ===
 
@@ -191,9 +196,23 @@ CATEGORY: ${detectedFormat?.category || 'Unknown'}
  Transitions to use: ${effects.transitions.join(', ')}
  Motion effects: ${effects.motionEffects.join(', ')}
  ` : ''}
+
+=== SELECTED TRANSITIONS ===
+${transitions.length > 0 ? transitions.map(t => `- ${t.replace(/_/g, ' ')}`).join('\n') : 'Default transitions'}
  
 === AI PROCESSING TOOLS ===
 ${config.formatTools.length > 0 ? config.formatTools.join(', ') : 'Standard processing'}
+
+=== BEAT SYNC RULES ===
+${beatRules.length > 0 ? beatRules.map(r => `- ${r.replace(/_/g, ' ')}`).join('\n') : 'No beat sync'}
+Detected BPM: ${detectedBPM || 'Unknown'}
+
+=== SHOT INTELLIGENCE RULES ===
+${Object.keys(shotRules).length > 0 ? Object.entries(shotRules).map(([key, values]) => `- ${key}: ${(values as string[]).join(', ')}`).join('\n') : 'No shot filters'}
+
+=== DIRECTOR INTENT ===
+${config.directorIntent ? `Mode: ${config.directorIntent}` : 'None'}
+${config.customIntent ? `Custom Vision: ${config.customIntent}` : ''}
 
  === GRAPHICS & TITLES ===
  ${graphics.length > 0 ? graphics.map(g => `- ${g?.name}: ${g?.description}`).join('\n') : 'No graphics selected'}
@@ -354,7 +373,7 @@ ${config.formatTools.length > 0 ? config.formatTools.join(', ') : 'Standard proc
         {/* Top section - Source & Timeline Preview */}
         <div className="flex-shrink-0 border-b border-border/30 bg-card/30 backdrop-blur-sm">
            <div className="container mx-auto px-4 py-4">
-             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
                <SourcePanel 
                  file={file}
                  onFileChange={setFile}
@@ -362,6 +381,13 @@ ${config.formatTools.length > 0 ? config.formatTools.join(', ') : 'Standard proc
                  disabled={isProcessing}
                   onFormatDetected={handleFormatDetected}
                />
+              <VideoPreviewPanel
+                file={file}
+                detectedFormat={detectedFormat}
+                colorGrade={config.colorGrade}
+                effectPreset={config.effectPreset}
+                isProcessing={isProcessing}
+              />
               <TimelineVisualizerDetailed 
                  fileContent={fileContent}
                  isProcessing={isProcessing}
