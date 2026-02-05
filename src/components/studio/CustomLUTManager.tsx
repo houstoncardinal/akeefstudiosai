@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { 
   Upload, Trash2, Edit2, Heart, Search, Grid, List, 
@@ -141,9 +141,9 @@ export default function CustomLUTManager({ onSelectLUT, selectedLutId }: CustomL
   }, []);
 
   // Fetch LUTs on mount
-  useState(() => {
+  useEffect(() => {
     fetchLuts();
-  });
+  }, [fetchLuts]);
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
     const file = acceptedFiles[0];
