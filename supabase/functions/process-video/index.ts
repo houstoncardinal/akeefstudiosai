@@ -5,6 +5,7 @@ const ALLOWED_ORIGIN_PATTERNS = [
   /^http:\/\/localhost:\d+$/,           // Local dev
   /^https:\/\/.*\.lovable\.app$/,       // Lovable preview deployments
   /^https:\/\/.*\.supabase\.co$/,       // Supabase hosted
+  /^https:\/\/.*\.netlify\.app$/,       // Netlify deployments
 ];
 
 function getCorsHeaders(req: Request) {

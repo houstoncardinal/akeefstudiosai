@@ -13,12 +13,12 @@ export default defineConfig(({ mode }) => ({
     const supabaseUrl =
       env.VITE_SUPABASE_URL ||
       process.env.VITE_SUPABASE_URL ||
-      "https://bunfknfhytdolxluwjoh.supabase.co";
+      "https://zxrbyrwzqmzrvzpntovx.supabase.co";
 
     const supabaseKey =
       env.VITE_SUPABASE_PUBLISHABLE_KEY ||
       process.env.VITE_SUPABASE_PUBLISHABLE_KEY ||
-      "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ1bmZrbmZoeXRkb2x4bHV3am9oIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAyNDkxNDYsImV4cCI6MjA4NTgyNTE0Nn0.s0H5g1sjN4pQJAU_WFaAHrxQ6zG9YdejnuE30KmjoV4";
+      "sb_publishable_5vvVdz7GiUP5-NyAGBZnoQ_2DlqYOeH";
 
     return {
       "import.meta.env.VITE_SUPABASE_URL": JSON.stringify(supabaseUrl),

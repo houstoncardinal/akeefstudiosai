@@ -32,7 +32,9 @@ import VideoPreviewPanel from '@/components/studio/VideoPreviewPanel';
 import FeedbackPanel from '@/components/studio/FeedbackPanel';
 import MultiVersionPanel from '@/components/studio/MultiVersionPanel';
 import CustomRulesEditorEnhanced from '@/components/studio/CustomRulesEditorEnhanced';
+import PanelWrapper from '@/components/studio/PanelWrapper';
  import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/components/ui/resizable';
  import { 
    Palette, 
    Sparkles, 
@@ -369,41 +371,46 @@ ${config.customIntent ? `Custom Vision: ${config.customIntent}` : ''}
    <div className="min-h-screen bg-background">
        <Header />
        
-      <main className="h-[calc(100vh-56px)] flex flex-col overflow-hidden">
-        {/* Top section - Source & Timeline Preview */}
-        <div className="flex-shrink-0 border-b border-border/30 bg-card/30 backdrop-blur-sm">
-           <div className="container mx-auto px-4 py-4">
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-               <SourcePanel 
-                 file={file}
-                 onFileChange={setFile}
-                 fileContent={fileContent}
-                 disabled={isProcessing}
-                  onFormatDetected={handleFormatDetected}
-               />
-              <VideoPreviewPanel
-                file={file}
-                detectedFormat={detectedFormat}
-                colorGrade={config.colorGrade}
-                effectPreset={config.effectPreset}
-                isProcessing={isProcessing}
-              />
-              <TimelineVisualizerDetailed 
-                 fileContent={fileContent}
-                 isProcessing={isProcessing}
-                  detectedFormat={detectedFormat}
-               detectedBPM={detectedBPM}
-               />
-             </div>
-           </div>
-         </div>
- 
-        {/* Bottom section - Studio Tools & Output */}
-         <div className="flex-1 overflow-hidden">
-          <div className="container mx-auto px-4 py-5 h-full">
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 h-full">
+      <main className="h-[calc(100vh-56px)] overflow-hidden">
+        <ResizablePanelGroup direction="vertical" className="h-full">
+          {/* Top section - Source & Timeline Preview */}
+          <ResizablePanel defaultSize={35} minSize={15} maxSize={70} className="overflow-hidden">
+            <div className="h-full bg-card/30 backdrop-blur-sm overflow-auto">
+              <div className="px-4 py-4">
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                  <SourcePanel
+                    file={file}
+                    onFileChange={setFile}
+                    fileContent={fileContent}
+                    disabled={isProcessing}
+                    onFormatDetected={handleFormatDetected}
+                  />
+                  <VideoPreviewPanel
+                    file={file}
+                    detectedFormat={detectedFormat}
+                    colorGrade={config.colorGrade}
+                    effectPreset={config.effectPreset}
+                    isProcessing={isProcessing}
+                  />
+                  <TimelineVisualizerDetailed
+                    fileContent={fileContent}
+                    isProcessing={isProcessing}
+                    detectedFormat={detectedFormat}
+                    detectedBPM={detectedBPM}
+                  />
+                </div>
+              </div>
+            </div>
+          </ResizablePanel>
+
+          <ResizableHandle withHandle className="hover:bg-primary/10 transition-colors" />
+
+          {/* Bottom section - Studio Tools & Output */}
+          <ResizablePanel defaultSize={65} minSize={30} className="overflow-hidden">
+            <div className="px-4 py-5 h-full">
+              <ResizablePanelGroup direction="horizontal" className="h-full rounded-lg">
                {/* Left - Tool Tabs */}
-               <div className="lg:col-span-8 overflow-hidden">
+               <ResizablePanel defaultSize={65} minSize={40} maxSize={85} className="overflow-hidden">
                  <Tabs defaultValue="style" className="h-full flex flex-col">
                   <TabsList className="w-full justify-start bg-card/50 backdrop-blur-sm border border-border/40 p-1.5 h-auto flex-wrap gap-1.5 rounded-xl">
                     <TabsTrigger 
@@ -487,109 +494,133 @@ ${config.customIntent ? `Custom Vision: ${config.customIntent}` : ''}
  
                   <div className="flex-1 overflow-auto mt-5 pr-1">
                      <TabsContent value="style" className="m-0 h-full">
-                       <StylePanel
-                         style={config.style}
-                         onStyleChange={(style) => updateConfig({ style })}
-                         model={config.model}
-                         onModelChange={(model) => updateConfig({ model })}
-                         disabled={isProcessing}
-                       />
+                       <PanelWrapper title="Style" icon={<Wand2 className="w-4 h-4" />}>
+                         <StylePanel
+                           style={config.style}
+                           onStyleChange={(style) => updateConfig({ style })}
+                           model={config.model}
+                           onModelChange={(model) => updateConfig({ model })}
+                           disabled={isProcessing}
+                         />
+                       </PanelWrapper>
                      </TabsContent>
  
                      <TabsContent value="color" className="m-0 h-full">
-                       <ColorPanel
-                         colorGrade={config.colorGrade}
-                         onColorGradeChange={(colorGrade) => updateConfig({ colorGrade })}
-                         disabled={isProcessing}
-                       />
+                       <PanelWrapper title="Color" icon={<Palette className="w-4 h-4" />}>
+                         <ColorPanel
+                           colorGrade={config.colorGrade}
+                           onColorGradeChange={(colorGrade) => updateConfig({ colorGrade })}
+                           disabled={isProcessing}
+                         />
+                       </PanelWrapper>
                      </TabsContent>
  
                      <TabsContent value="effects" className="m-0 h-full">
-                       <EffectsPanel
-                         effectPreset={config.effectPreset}
-                         onEffectPresetChange={(effectPreset) => updateConfig({ effectPreset })}
-                         disabled={isProcessing}
-                       />
+                       <PanelWrapper title="Effects" icon={<Zap className="w-4 h-4" />}>
+                         <EffectsPanel
+                           effectPreset={config.effectPreset}
+                           onEffectPresetChange={(effectPreset) => updateConfig({ effectPreset })}
+                           disabled={isProcessing}
+                         />
+                       </PanelWrapper>
                      </TabsContent>
  
                      <TabsContent value="graphics" className="m-0 h-full">
-                       <GraphicsPanel
-                         selectedGraphics={config.graphics}
-                         onGraphicsChange={(graphics) => updateConfig({ graphics })}
-                         disabled={isProcessing}
-                       />
+                       <PanelWrapper title="Graphics" icon={<Type className="w-4 h-4" />}>
+                         <GraphicsPanel
+                           selectedGraphics={config.graphics}
+                           onGraphicsChange={(graphics) => updateConfig({ graphics })}
+                           disabled={isProcessing}
+                         />
+                       </PanelWrapper>
                      </TabsContent>
  
                      <TabsContent value="versions" className="m-0 h-full">
-                       <MultiVersionPanel
-                         selectedVersions={config.versions}
-                         onVersionsChange={(versions) => updateConfig({ versions })}
-                         isProcessing={isProcessing}
-                         generatedVersions={showOutput ? ['full_edit'] : []}
-                       />
+                       <PanelWrapper title="Versions" icon={<Layers className="w-4 h-4" />}>
+                         <MultiVersionPanel
+                           selectedVersions={config.versions}
+                           onVersionsChange={(versions) => updateConfig({ versions })}
+                           isProcessing={isProcessing}
+                           generatedVersions={showOutput ? ['full_edit'] : []}
+                         />
+                       </PanelWrapper>
                      </TabsContent>
                      
                      <TabsContent value="tools" className="m-0 h-full">
-                       <FormatToolsPanel
-                         format={detectedFormat}
-                         selectedTools={config.formatTools}
-                         onToolsChange={(formatTools) => updateConfig({ formatTools })}
-                         disabled={isProcessing}
-                       />
+                       <PanelWrapper title="AI Tools" icon={<Wrench className="w-4 h-4" />}>
+                         <FormatToolsPanel
+                           format={detectedFormat}
+                           selectedTools={config.formatTools}
+                           onToolsChange={(formatTools) => updateConfig({ formatTools })}
+                           disabled={isProcessing}
+                         />
+                       </PanelWrapper>
                      </TabsContent>
                      
                      <TabsContent value="transitions" className="m-0 h-full">
-                       <TransitionsPanel
-                         selectedTransitions={config.transitions}
-                         onTransitionsChange={(transitions) => updateConfig({ transitions })}
-                         disabled={isProcessing}
-                       />
+                       <PanelWrapper title="Transitions" icon={<ArrowRightLeft className="w-4 h-4" />}>
+                         <TransitionsPanel
+                           selectedTransitions={config.transitions}
+                           onTransitionsChange={(transitions) => updateConfig({ transitions })}
+                           disabled={isProcessing}
+                         />
+                       </PanelWrapper>
                      </TabsContent>
                      
                      <TabsContent value="shots" className="m-0 h-full">
-                       <ShotIntelligencePanel
-                         analysisRules={config.shotAnalysisRules}
-                         onRulesChange={(shotAnalysisRules) => updateConfig({ shotAnalysisRules })}
-                         disabled={isProcessing}
-                       />
+                       <PanelWrapper title="Shots" icon={<Eye className="w-4 h-4" />}>
+                         <ShotIntelligencePanel
+                           analysisRules={config.shotAnalysisRules}
+                           onRulesChange={(shotAnalysisRules) => updateConfig({ shotAnalysisRules })}
+                           disabled={isProcessing}
+                         />
+                       </PanelWrapper>
                      </TabsContent>
                      
                      <TabsContent value="beats" className="m-0 h-full">
-                       <BeatEnginePanel
-                         beatRules={config.beatRules}
-                         onBeatRulesChange={(beatRules) => updateConfig({ beatRules })}
-                         disabled={isProcessing}
-                       />
+                       <PanelWrapper title="Beats" icon={<Music className="w-4 h-4" />}>
+                         <BeatEnginePanel
+                           beatRules={config.beatRules}
+                           onBeatRulesChange={(beatRules) => updateConfig({ beatRules })}
+                           disabled={isProcessing}
+                         />
+                       </PanelWrapper>
                      </TabsContent>
                      
                      <TabsContent value="intent" className="m-0 h-full">
-                       <DirectorIntentPanel
-                         selectedIntent={config.directorIntent}
-                         customIntent={config.customIntent}
-                         onIntentChange={(directorIntent) => updateConfig({ directorIntent })}
-                         onCustomIntentChange={(customIntent) => updateConfig({ customIntent })}
-                         disabled={isProcessing}
-                       />
+                       <PanelWrapper title="Intent" icon={<Compass className="w-4 h-4" />}>
+                         <DirectorIntentPanel
+                           selectedIntent={config.directorIntent}
+                           customIntent={config.customIntent}
+                           onIntentChange={(directorIntent) => updateConfig({ directorIntent })}
+                           onCustomIntentChange={(customIntent) => updateConfig({ customIntent })}
+                           disabled={isProcessing}
+                         />
+                       </PanelWrapper>
                      </TabsContent>
  
                      <TabsContent value="export" className="m-0 h-full">
-                        <ExportPanel
-                          exportFormat={config.exportFormat}
-                          onExportFormatChange={(exportFormat) => updateConfig({ exportFormat })}
-                          onGenerate={handleGenerate}
-                          canGenerate={canGenerate}
-                          isProcessing={isProcessing}
-                          progress={progress}
-                         statusMessage={statusMessage}
-                         processingState={processingState}
-                       />
+                       <PanelWrapper title="Export" icon={<Sparkles className="w-4 h-4" />}>
+                         <ExportPanel
+                           exportFormat={config.exportFormat}
+                           onExportFormatChange={(exportFormat) => updateConfig({ exportFormat })}
+                           onGenerate={handleGenerate}
+                           canGenerate={canGenerate}
+                           isProcessing={isProcessing}
+                           progress={progress}
+                           statusMessage={statusMessage}
+                           processingState={processingState}
+                         />
+                       </PanelWrapper>
                      </TabsContent>
                    </div>
                  </Tabs>
-               </div>
- 
+               </ResizablePanel>
+
+               <ResizableHandle withHandle className="hover:bg-primary/10 transition-colors" />
+
                {/* Right - Output */}
-               <div className="lg:col-span-4 overflow-auto">
+               <ResizablePanel defaultSize={35} minSize={15} maxSize={50} className="overflow-auto pl-4">
                 {/* AI Feedback Panel - Shows after processing */}
                 {showOutput && (
                   <div className="mb-4">
@@ -621,10 +652,11 @@ ${config.customIntent ? `Custom Vision: ${config.customIntent}` : ''}
                    config={config}
                    showOutput={showOutput}
                  />
-               </div>
-             </div>
-           </div>
-         </div>
+               </ResizablePanel>
+              </ResizablePanelGroup>
+            </div>
+          </ResizablePanel>
+        </ResizablePanelGroup>
        </main>
  
        {isProcessing && (
