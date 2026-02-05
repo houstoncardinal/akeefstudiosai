@@ -4,12 +4,25 @@
  import { useToast } from '@/hooks/use-toast';
  import { useState } from 'react';
  
+ interface JobData {
+   id: string;
+   input_filename: string;
+   output_filename: string | null;
+   output_file_path: string | null;
+   preset: string;
+   model: string;
+   status: string;
+   error_message: string | null;
+   created_at: string;
+   completed_at: string | null;
+ }
+
  interface OutputPanelProps {
-   job: any;
+   job: JobData | null;
    outputXml: string | null;
    onNewEdit: () => void;
-   config: any;
-   showOutput: boolean | string;
+   config: Record<string, unknown>;
+   showOutput: boolean | "" | null;
  }
  
  export default function OutputPanel({ job, outputXml, onNewEdit, config, showOutput }: OutputPanelProps) {

@@ -1,4 +1,4 @@
- import { useState, useEffect } from 'react';
+ import { useState, useEffect, useRef, useCallback } from 'react';
  import { supabase } from '@/integrations/supabase/client';
  import { useToast } from '@/hooks/use-toast';
  import { 
@@ -10,7 +10,7 @@
    EXPORT_FORMATS,
    AI_MODELS 
  } from '@/lib/presets';
-import { VIDEO_FORMATS, type VideoFormat } from '@/lib/formats';
+import { type VideoFormat } from '@/lib/formats';
  import Header from '@/components/studio/Header';
  import SourcePanel from '@/components/studio/SourcePanel';
  import TimelinePanel from '@/components/studio/TimelinePanel';
@@ -141,11 +141,6 @@ import CustomRulesEditor from '@/components/studio/CustomRulesEditor';
      const effects = EFFECT_PRESETS.find(e => e.id === config.effectPreset);
      const graphics = config.graphics.map(g => GRAPHICS_TEMPLATES.find(t => t.id === g)).filter(Boolean);
      const versions = config.versions.map(v => VERSION_TYPES.find(t => t.id === v)).filter(Boolean);
-    const formatToolNames = config.formatTools.map(t => {
-      const tool = detectedFormat ? VIDEO_FORMATS.find(f => f.id === detectedFormat.id) : null;
-      return t;
-    });
- 
      return `
  === AKEEF STUDIO AI - ADVANCED EDIT CONFIGURATION ===
 
@@ -187,13 +182,24 @@ ${config.formatTools.length > 0 ? config.formatTools.join(', ') : 'Standard proc
  `;
    };
  
+   // Track active timers for cleanup
+   const timersRef = useRef<number[]>([]);
+
+   const clearAllTimers = useCallback(() => {
+     timersRef.current.forEach(id => clearInterval(id));
+     timersRef.current = [];
+   }, []);
+
+   // Cleanup timers on unmount
+   useEffect(() => {
+     return () => clearAllTimers();
+   }, [clearAllTimers]);
+
    const handleGenerate = async () => {
     if (!file) return;
-    
-    // For video files, we generate an edit list / instructions
-    // For timeline files, we process the FCPXML
+
     const isTimelineFile = detectedFormat?.category === 'timeline';
-    
+
     if (isTimelineFile && !fileContent) {
       toast({
         variant: 'destructive',
@@ -202,39 +208,46 @@ ${config.formatTools.length > 0 ? config.formatTools.join(', ') : 'Standard proc
       });
       return;
     }
- 
+
      try {
+       clearAllTimers();
        setProcessingState('uploading');
        setProgress(10);
        setCurrentJob(null);
        setOutputXml(null);
        setStatusMessage('Analyzing source media...');
- 
-       const progressInterval = setInterval(() => {
+
+       const progressInterval = window.setInterval(() => {
          setProgress(p => Math.min(p + 3, 35));
        }, 200);
- 
-       setTimeout(() => {
+       timersRef.current.push(progressInterval);
+
+       const statusTimer1 = window.setTimeout(() => {
          setStatusMessage('Applying style and color grading...');
        }, 1000);
- 
+       timersRef.current.push(statusTimer1);
+
        setProcessingState('processing');
        setProgress(40);
        clearInterval(progressInterval);
- 
-       const aiProgressInterval = setInterval(() => {
+
+       const aiProgressInterval = window.setInterval(() => {
          setProgress(p => {
            if (p < 60) return p + 2;
            if (p < 80) return p + 1;
            return Math.min(p + 0.5, 92);
          });
        }, 400);
- 
-       setTimeout(() => setStatusMessage('Generating transitions and effects...'), 2000);
-       setTimeout(() => setStatusMessage('Building timeline structure...'), 4000);
-       setTimeout(() => setStatusMessage('Rendering version outputs...'), 6000);
- 
-        const { data: fnData, error: fnError } = await supabase.functions.invoke('process-video', {
+       timersRef.current.push(aiProgressInterval);
+
+       const t2 = window.setTimeout(() => setStatusMessage('Generating transitions and effects...'), 2000);
+       const t3 = window.setTimeout(() => setStatusMessage('Building timeline structure...'), 4000);
+       const t4 = window.setTimeout(() => setStatusMessage('Rendering version outputs...'), 6000);
+       timersRef.current.push(t2, t3, t4);
+
+        // Client-side timeout to prevent infinite hang if edge function is killed
+       const CLIENT_TIMEOUT_MS = 90_000; // 90 seconds
+       const invokePromise = supabase.functions.invoke('process-video', {
          body: {
             fileContent: isTimelineFile ? fileContent : null,
            fileName: file.name,
@@ -254,29 +267,39 @@ ${config.formatTools.length > 0 ? config.formatTools.join(', ') : 'Standard proc
            },
          },
        });
- 
-       clearInterval(aiProgressInterval);
- 
+
+       const timeoutPromise = new Promise<never>((_, reject) => {
+         const id = window.setTimeout(() => {
+           reject(new Error('Processing timed out. The AI took too long to respond. Please try a faster model or simpler input.'));
+         }, CLIENT_TIMEOUT_MS);
+         timersRef.current.push(id);
+       });
+
+       const { data: fnData, error: fnError } = await Promise.race([invokePromise, timeoutPromise]);
+
+       clearAllTimers();
+
        if (fnError) {
          throw new Error(fnError.message);
        }
- 
+
        if (!fnData?.success) {
          throw new Error(fnData?.error || 'Processing failed');
        }
- 
+
        setProgress(100);
        setProcessingState('completed');
        setStatusMessage('All versions rendered successfully!');
        setCurrentJob(fnData.job);
        setOutputXml(fnData.outputXml);
- 
-       toast({ 
-         title: '✨ Export Complete', 
+
+       toast({
+         title: 'Export Complete',
          description: `${config.versions.length} version(s) rendered with ${STYLE_PRESETS.find(s => s.id === config.style)?.name} style.`
        });
- 
+
      } catch (err) {
+       clearAllTimers();
        console.error('Processing error:', err);
        setProcessingState('failed');
        setStatusMessage(err instanceof Error ? err.message : 'An error occurred');
@@ -297,10 +320,8 @@ ${config.formatTools.length > 0 ? config.formatTools.join(', ') : 'Standard proc
    };
  
    const isProcessing = processingState === 'uploading' || processingState === 'processing';
-   const canGenerate = file && fileContent && !isProcessing;
+   const canGenerate = !!file && !isProcessing;
    const showOutput = processingState === 'completed' && currentJob && outputXml;
- 
-  const canGenerateNow = file && !isProcessing;
 
   return (
    <div className="min-h-screen bg-background">
@@ -443,7 +464,7 @@ ${config.formatTools.length > 0 ? config.formatTools.join(', ') : 'Standard proc
                           exportFormat={config.exportFormat}
                           onExportFormatChange={(exportFormat) => updateConfig({ exportFormat })}
                           onGenerate={handleGenerate}
-                          canGenerate={canGenerateNow}
+                          canGenerate={canGenerate}
                           isProcessing={isProcessing}
                           progress={progress}
                          statusMessage={statusMessage}
