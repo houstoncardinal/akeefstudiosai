@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { CINEMATIC_LUTS, type CinematicLUT } from '@/lib/presets';
 import { cn } from '@/lib/utils';
-import { CheckCircle, Film, Sparkles, Camera, Tv, Music, RotateCcw, Undo2, Redo2, HelpCircle, Upload, FolderOpen, Eye } from 'lucide-react';
+import { CheckCircle, Film, Sparkles, Camera, Tv, Music, RotateCcw, Undo2, Redo2, HelpCircle, Upload, FolderOpen, Eye, Layers, Plus } from 'lucide-react';
 import { Slider } from '@/components/ui/slider';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
@@ -13,6 +13,7 @@ import InsightTooltip, { FEATURE_TOOLTIPS } from './InsightTooltip';
 import AutoShowTooltip from './AutoShowTooltip';
 import CustomLUTManager from './CustomLUTManager';
 import { LUTCardWithPreview, useFrameCaptureContext } from './LUTPreviewSystem';
+import LUTStackPanel, { type StackedLUT, blendLUTSettings } from './LUTStackPanel';
 // Legacy compatibility: alias old ColorSettings to the richer FullColorSettings
 export type ColorSettings = FullColorSettings;
 
@@ -61,6 +62,11 @@ interface ColorPanelProps {
   onRedo?: () => void;
   disabled?: boolean;
   currentFrame?: string | null; // Current video frame for LUT preview
+  // LUT stacking props
+  lutStack?: StackedLUT[];
+  onLutStackChange?: (stack: StackedLUT[]) => void;
+  stackingEnabled?: boolean;
+  onStackingEnabledChange?: (enabled: boolean) => void;
 }
 
 const thumbnailMap: Record<string, string> = {
@@ -177,6 +183,10 @@ export default function ColorPanel({
   onRedo,
   disabled,
   currentFrame,
+  lutStack = [],
+  onLutStackChange,
+  stackingEnabled = false,
+  onStackingEnabledChange,
 }: ColorPanelProps) {
   const selectedLUT = CINEMATIC_LUTS.find(l => l.id === colorGrade);
   const { setCurrentFrame } = useFrameCaptureContext();
@@ -246,9 +256,30 @@ export default function ColorPanel({
 
   const categories = ['hollywood', 'film_stock', 'stylized', 'music_video', 'broadcast', 'documentary'] as const;
   const [showCustomManager, setShowCustomManager] = useState(false);
+  const [viewMode, setViewMode] = useState<'library' | 'stack' | 'custom'>('library');
+
+  // Handle adding LUT to stack from library
+  const handleAddToStack = (lutId: string) => {
+    if (!onLutStackChange) return;
+    const newStack = [
+      ...lutStack,
+      {
+        id: `${lutId}-${Date.now()}`,
+        lutId,
+        opacity: 100,
+        enabled: true,
+      },
+    ];
+    onLutStackChange(newStack);
+    onColorSettingsChange?.(blendLUTSettings(newStack));
+  };
+
+  // Check if stacking mode is active
+  const isStackingMode = stackingEnabled && lutStack.length > 0;
 
   const renderLUTCard = (lut: CinematicLUT) => {
     const active = colorGrade === lut.id;
+    const isInStack = lutStack.some(s => s.lutId === lut.id);
     // Prefer live thumbnail from video, fall back to static
     const liveThumbnail = lutThumbnails?.get(lut.id);
     const thumbnail = liveThumbnail || thumbnailMap[lut.thumbnail];
@@ -263,84 +294,117 @@ export default function ColorPanel({
     };
 
     const cardContent = (
-      <button
-        onClick={() => !disabled && onColorGradeChange(lut.id)}
-        disabled={disabled}
-        className={cn(
-          'group relative rounded-xl overflow-hidden border-2 transition-all duration-200 w-full',
-          active
-            ? 'border-primary ring-2 ring-primary/30 scale-[1.02]'
-            : 'border-transparent hover:border-primary/40 hover:scale-[1.01]'
-        )}
-      >
-        {/* Thumbnail */}
-        <div className="aspect-video relative overflow-hidden">
-          {thumbnail ? (
-            <img
-              src={thumbnail}
-              alt={lut.name}
-              className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-            />
-          ) : (
-            <div className="w-full h-full bg-muted/30 animate-pulse" />
+      <div className="relative group">
+        <button
+          onClick={() => !disabled && onColorGradeChange(lut.id)}
+          disabled={disabled}
+          className={cn(
+            'relative rounded-xl overflow-hidden border-2 transition-all duration-200 w-full',
+            active
+              ? 'border-primary ring-2 ring-primary/30 scale-[1.02]'
+              : 'border-transparent hover:border-primary/40 hover:scale-[1.01]'
           )}
-          {/* Overlay gradient */}
-          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
-          
-          {/* Preview indicator on hover */}
-          {currentFrame && (
-            <div className="absolute top-2 left-2 opacity-0 group-hover:opacity-100 transition-opacity">
-              <Badge variant="secondary" className="text-[7px] bg-primary/80 text-primary-foreground border-0 backdrop-blur-sm px-1.5 py-0.5 gap-1">
-                <Eye className="w-2.5 h-2.5" />
-                Preview
-              </Badge>
-            </div>
-          )}
-          
-          {liveThumbnail && !currentFrame && (
-            <div className="absolute top-2 left-2">
-              <Badge variant="secondary" className="text-[7px] bg-black/50 text-white border-0 backdrop-blur-sm px-1 py-0">
-                LIVE
-              </Badge>
-            </div>
-          )}
-
-          {/* Active indicator */}
-          {active && (
-            <div className="absolute top-2 right-2">
-              <div className="w-6 h-6 rounded-full bg-primary flex items-center justify-center">
-                <CheckCircle className="w-4 h-4 text-primary-foreground" />
+        >
+          {/* Thumbnail */}
+          <div className="aspect-video relative overflow-hidden">
+            {thumbnail ? (
+              <img
+                src={thumbnail}
+                alt={lut.name}
+                className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+              />
+            ) : (
+              <div className="w-full h-full bg-muted/30 animate-pulse" />
+            )}
+            {/* Overlay gradient */}
+            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+            
+            {/* Preview indicator on hover */}
+            {currentFrame && (
+              <div className="absolute top-2 left-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                <Badge variant="secondary" className="text-[7px] bg-primary/80 text-primary-foreground border-0 backdrop-blur-sm px-1.5 py-0.5 gap-1">
+                  <Eye className="w-2.5 h-2.5" />
+                  Preview
+                </Badge>
               </div>
+            )}
+            
+            {liveThumbnail && !currentFrame && (
+              <div className="absolute top-2 left-2">
+                <Badge variant="secondary" className="text-[7px] bg-black/50 text-white border-0 backdrop-blur-sm px-1 py-0">
+                  LIVE
+                </Badge>
+              </div>
+            )}
+
+            {/* Active indicator */}
+            {active && (
+              <div className="absolute top-2 right-2">
+                <div className="w-6 h-6 rounded-full bg-primary flex items-center justify-center">
+                  <CheckCircle className="w-4 h-4 text-primary-foreground" />
+                </div>
+              </div>
+            )}
+
+            {/* In stack indicator */}
+            {isInStack && !active && (
+              <div className="absolute top-2 right-2">
+                <div className="w-5 h-5 rounded-full bg-accent flex items-center justify-center">
+                  <Layers className="w-3 h-3 text-accent-foreground" />
+                </div>
+              </div>
+            )}
+
+            {/* LUT name overlay */}
+            <div className="absolute bottom-0 left-0 right-0 p-2.5">
+              <p className={cn(
+                'text-xs font-bold text-white',
+                active && 'text-primary-foreground'
+              )}>
+                {lut.name}
+              </p>
+              <p className="text-[9px] text-white/70 line-clamp-1 mt-0.5">
+                {lut.description}
+              </p>
             </div>
-          )}
-
-          {/* LUT name overlay */}
-          <div className="absolute bottom-0 left-0 right-0 p-2.5">
-            <p className={cn(
-              'text-xs font-bold text-white',
-              active && 'text-primary-foreground'
-            )}>
-              {lut.name}
-            </p>
-            <p className="text-[9px] text-white/70 line-clamp-1 mt-0.5">
-              {lut.description}
-            </p>
           </div>
-        </div>
 
-        {/* Tags */}
-        <div className="p-2 bg-card flex flex-wrap gap-1">
-          {lut.tags.slice(0, 3).map(tag => (
-            <Badge
-              key={tag}
-              variant="secondary"
-              className="text-[8px] px-1.5 py-0 h-4 bg-muted/50"
-            >
-              {tag}
-            </Badge>
-          ))}
-        </div>
-      </button>
+          {/* Tags */}
+          <div className="p-2 bg-card flex flex-wrap gap-1">
+            {lut.tags.slice(0, 3).map(tag => (
+              <Badge
+                key={tag}
+                variant="secondary"
+                className="text-[8px] px-1.5 py-0 h-4 bg-muted/50"
+              >
+                {tag}
+              </Badge>
+            ))}
+          </div>
+        </button>
+
+        {/* Add to stack button */}
+        {onLutStackChange && !isInStack && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              handleAddToStack(lut.id);
+            }}
+            disabled={disabled}
+            className={cn(
+              'absolute bottom-12 right-2 w-7 h-7 rounded-full',
+              'bg-accent/90 hover:bg-accent text-accent-foreground',
+              'flex items-center justify-center',
+              'opacity-0 group-hover:opacity-100 transition-all',
+              'shadow-lg hover:scale-110',
+              disabled && 'opacity-50 cursor-not-allowed'
+            )}
+            title="Add to LUT stack"
+          >
+            <Plus className="w-4 h-4" />
+          </button>
+        )}
+      </div>
     );
 
     // Wrap with preview system if we have a current frame
@@ -386,25 +450,60 @@ export default function ColorPanel({
               <HelpCircle className="w-3.5 h-3.5 text-muted-foreground hover:text-primary cursor-help transition-colors" />
             </AutoShowTooltip>
           </div>
-          <div className="flex items-center gap-2">
-            <Button
-              variant={showCustomManager ? "default" : "outline"}
-              size="sm"
-              className="h-7 text-[10px] gap-1.5"
-              onClick={() => setShowCustomManager(!showCustomManager)}
-            >
-              <FolderOpen className="w-3.5 h-3.5" />
-              My LUTs
-            </Button>
-            <Badge variant="outline" className="text-[9px]">
-              {CINEMATIC_LUTS.length} Professional LUTs
-            </Badge>
+          <div className="flex items-center gap-1.5">
+            {/* View mode toggles */}
+            <div className="flex items-center bg-muted/30 rounded-md p-0.5">
+              <Button
+                variant={viewMode === 'library' ? "secondary" : "ghost"}
+                size="sm"
+                className="h-6 text-[9px] px-2"
+                onClick={() => setViewMode('library')}
+              >
+                <Film className="w-3 h-3 mr-1" />
+                Library
+              </Button>
+              <Button
+                variant={viewMode === 'stack' ? "secondary" : "ghost"}
+                size="sm"
+                className={cn(
+                  "h-6 text-[9px] px-2",
+                  lutStack.length > 0 && "text-primary"
+                )}
+                onClick={() => setViewMode('stack')}
+              >
+                <Layers className="w-3 h-3 mr-1" />
+                Stack
+                {lutStack.length > 0 && (
+                  <Badge variant="secondary" className="ml-1 h-4 min-w-4 text-[8px] px-1">
+                    {lutStack.length}
+                  </Badge>
+                )}
+              </Button>
+              <Button
+                variant={viewMode === 'custom' ? "secondary" : "ghost"}
+                size="sm"
+                className="h-6 text-[9px] px-2"
+                onClick={() => setViewMode('custom')}
+              >
+                <FolderOpen className="w-3 h-3 mr-1" />
+                Custom
+              </Button>
+            </div>
           </div>
         </div>
 
-        {showCustomManager ? (
+        {viewMode === 'custom' ? (
           <div className="h-[400px] border-t border-border/30">
             <CustomLUTManager />
+          </div>
+        ) : viewMode === 'stack' ? (
+          <div className="border-t border-border/30">
+            <LUTStackPanel
+              stack={lutStack}
+              onStackChange={onLutStackChange || (() => {})}
+              onBlendedSettingsChange={onColorSettingsChange || (() => {})}
+              disabled={disabled}
+            />
           </div>
         ) : (
           <>
