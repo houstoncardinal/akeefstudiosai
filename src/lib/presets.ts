@@ -526,11 +526,57 @@
  // ============================================
  
  export const AI_MODELS = [
-   { id: 'google/gemini-3-flash-preview', name: 'Gemini 3 Flash', description: 'Fastest • Recommended' },
-   { id: 'google/gemini-2.5-pro', name: 'Gemini 2.5 Pro', description: 'Most powerful • Complex projects' },
-   { id: 'google/gemini-2.5-flash', name: 'Gemini 2.5 Flash', description: 'Balanced speed/quality' },
-   { id: 'openai/gpt-5', name: 'GPT-5', description: 'Premium accuracy' },
-   { id: 'openai/gpt-5-mini', name: 'GPT-5 Mini', description: 'Fast & efficient' },
+   // Gemini Models - Google's Advanced AI
+   { 
+     id: 'google/gemini-3-flash-preview', 
+     name: 'Gemini 3 Flash', 
+     description: 'Ultra-fast • Next-gen speed',
+     provider: 'gemini',
+     tier: 'fast',
+   },
+   { 
+     id: 'google/gemini-2.5-pro', 
+     name: 'Gemini 2.5 Pro', 
+     description: 'Maximum power • Complex timelines',
+     provider: 'gemini',
+     tier: 'premium',
+   },
+   { 
+     id: 'google/gemini-2.5-flash', 
+     name: 'Gemini 2.5 Flash', 
+     description: 'Balanced • Great for music videos',
+     provider: 'gemini',
+     tier: 'balanced',
+   },
+   { 
+     id: 'google/gemini-2.5-flash-lite', 
+     name: 'Gemini 2.5 Flash Lite', 
+     description: 'Lightning fast • Quick edits',
+     provider: 'gemini',
+     tier: 'fast',
+   },
+   // OpenAI Models - GPT Power
+   { 
+     id: 'openai/gpt-5', 
+     name: 'GPT-5', 
+     description: 'Premium accuracy • Best for complex edits',
+     provider: 'openai',
+     tier: 'premium',
+   },
+   { 
+     id: 'openai/gpt-5-mini', 
+     name: 'GPT-5 Mini', 
+     description: 'Fast & powerful • Recommended',
+     provider: 'openai',
+     tier: 'balanced',
+   },
+   { 
+     id: 'openai/gpt-5-nano', 
+     name: 'GPT-5 Nano', 
+     description: 'Speed optimized • Quick iterations',
+     provider: 'openai',
+     tier: 'fast',
+   },
  ];
  
  // Legacy export for compatibility
