@@ -170,7 +170,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
         className={cn(
           'w-full h-14 rounded-xl font-bold text-sm flex items-center justify-center gap-3 transition-all duration-300',
           canGenerate 
-            ? 'btn-futuristic text-primary-foreground cursor-pointer' 
+            ? 'btn-premium text-primary-foreground cursor-pointer' 
             : 'bg-muted border border-border/50 text-muted-foreground cursor-not-allowed'
         )}
       >
