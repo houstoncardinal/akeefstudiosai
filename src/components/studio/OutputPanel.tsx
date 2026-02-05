@@ -52,17 +52,43 @@
      setTimeout(() => setCopied(false), 2000);
    };
  
-   const handleDownload = () => {
-     if (!outputXml) return;
-     const blob = new Blob([outputXml], { type: 'application/xml' });
-     const url = URL.createObjectURL(blob);
-     const a = document.createElement('a');
-     a.href = url;
-     a.download = job?.output_filename || 'akeef_export.fcpxml';
-     a.click();
-     URL.revokeObjectURL(url);
-     toast({ title: 'Download started!' });
-   };
+  const handleDownload = async () => {
+    if (!outputXml) return;
+    const blob = new Blob([outputXml], { type: 'application/xml' });
+    const defaultName = job?.output_filename || 'akeef_export.fcpxml';
+
+    // Try File System Access API for save-as dialog
+    if ('showSaveFilePicker' in window) {
+      try {
+        const handle = await (window as any).showSaveFilePicker({
+          suggestedName: defaultName,
+          types: [
+            {
+              description: 'Final Cut Pro XML',
+              accept: { 'application/xml': ['.fcpxml', '.xml'] },
+            },
+          ],
+        });
+        const writable = await handle.createWritable();
+        await writable.write(blob);
+        await writable.close();
+        toast({ title: 'File saved successfully!' });
+        return;
+      } catch (err: any) {
+        // User cancelled the picker — don't fall through to auto-download
+        if (err?.name === 'AbortError') return;
+      }
+    }
+
+    // Fallback: auto-download
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = defaultName;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast({ title: 'Download started!' });
+  };
  
    if (!showOutput) {
      return (

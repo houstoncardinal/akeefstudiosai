@@ -1,5 +1,6 @@
-import { useState } from 'react';
-import { BEAT_ANALYSIS_TYPES, BEAT_SYNC_RULES, type BeatSyncRule } from '@/lib/presets';
+import { useState, useCallback } from 'react';
+import { BEAT_ANALYSIS_TYPES, BEAT_SYNC_RULES } from '@/lib/presets';
+import { analyzeAudio, type AudioAnalysisResult } from '@/lib/audioAnalysis';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -7,27 +8,28 @@ import { Switch } from '@/components/ui/switch';
 import { Slider } from '@/components/ui/slider';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Progress } from '@/components/ui/progress';
-import { 
-  Music, 
-  Disc, 
-  Activity, 
-  Mic, 
-  TrendingUp, 
-  VolumeX, 
+import {
+  Music,
+  Disc,
+  Activity,
+  Mic,
+  TrendingUp,
+  VolumeX,
   BarChart3,
-  Play,
-  Pause,
   Zap,
   ChevronDown,
   ChevronRight,
   CheckCircle,
   Circle,
-  Slash
+  Slash,
+  AlertCircle
 } from 'lucide-react';
 
 interface BeatEnginePanelProps {
+  file: File | null;
   beatRules: string[];
   onBeatRulesChange: (rules: string[]) => void;
+  onAnalysisComplete?: (result: AudioAnalysisResult) => void;
   disabled?: boolean;
 }
 
@@ -49,50 +51,60 @@ const intensityColors: Record<string, string> = {
   heavy: 'bg-rose-500/20 text-rose-400 border-rose-500/30',
 };
 
-export default function BeatEnginePanel({ 
-  beatRules, 
-  onBeatRulesChange, 
-  disabled 
+export default function BeatEnginePanel({
+  file,
+  beatRules,
+  onBeatRulesChange,
+  onAnalysisComplete,
+  disabled
 }: BeatEnginePanelProps) {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisProgress, setAnalysisProgress] = useState(0);
-  const [detectedBPM, setDetectedBPM] = useState<number | null>(null);
+  const [analysisResult, setAnalysisResult] = useState<AudioAnalysisResult | null>(null);
+  const [analysisError, setAnalysisError] = useState<string | null>(null);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [sensitivity, setSensitivity] = useState(50);
   const [beatOffset, setBeatOffset] = useState(0);
   const [quantize, setQuantize] = useState(true);
-  
-  // Energy visualization mock data
-  const energyCurve = Array.from({ length: 50 }, (_, i) => 
-    Math.sin(i * 0.3) * 0.3 + Math.random() * 0.4 + 0.3
-  );
 
-  const handleStartAnalysis = () => {
+  const handleStartAnalysis = useCallback(async () => {
+    if (!file) return;
+
     setIsAnalyzing(true);
     setAnalysisProgress(0);
-    
-    const interval = setInterval(() => {
-      setAnalysisProgress(prev => {
-        if (prev >= 100) {
-          clearInterval(interval);
-          setIsAnalyzing(false);
-          setDetectedBPM(Math.floor(Math.random() * 60) + 90); // 90-150 BPM
-          return 100;
-        }
-        return prev + Math.random() * 20;
+    setAnalysisError(null);
+
+    try {
+      const result = await analyzeAudio(file, 50, (progress) => {
+        setAnalysisProgress(Math.min(progress, 99));
       });
-    }, 200);
-  };
+
+      setAnalysisResult(result);
+      setAnalysisProgress(100);
+      onAnalysisComplete?.(result);
+    } catch (err) {
+      console.error('Audio analysis failed:', err);
+      setAnalysisError(
+        err instanceof Error
+          ? err.message
+          : 'Could not analyze audio. Try a different file format.'
+      );
+    } finally {
+      setIsAnalyzing(false);
+    }
+  }, [file, onAnalysisComplete]);
 
   const handleToggleRule = (ruleId: string) => {
     if (disabled) return;
-    
     if (beatRules.includes(ruleId)) {
       onBeatRulesChange(beatRules.filter(id => id !== ruleId));
     } else {
       onBeatRulesChange([...beatRules, ruleId]);
     }
   };
+
+  const energyCurve = analysisResult?.energyCurve ?? [];
+  const detectedBPM = analysisResult?.bpm ?? null;
 
   return (
     <div className="space-y-4">
@@ -104,26 +116,31 @@ export default function BeatEnginePanel({
             <span className="panel-title">Beat & Energy Engine</span>
           </div>
           <Badge variant="outline" className="text-[9px] bg-primary/10 border-primary/30 text-primary">
-            AI-Powered
+            Web Audio API
           </Badge>
         </div>
-        
+
         <div className="p-4 space-y-4">
           <p className="text-xs text-muted-foreground">
-            Analyze audio to detect BPM, beats, drops, and energy levels. 
+            Analyze audio to detect real BPM, beats, and energy levels.
             Automatically sync cuts and effects to the rhythm.
           </p>
-          
+
           {/* Analysis Button */}
           <Button
             onClick={handleStartAnalysis}
-            disabled={disabled || isAnalyzing}
+            disabled={disabled || isAnalyzing || !file}
             className="w-full h-12 gap-2 bg-gradient-to-r from-primary via-accent to-primary text-primary-foreground"
           >
             {isAnalyzing ? (
               <>
                 <Activity className="w-5 h-5 animate-pulse" />
                 <span>Analyzing Audio...</span>
+              </>
+            ) : !file ? (
+              <>
+                <Activity className="w-5 h-5 opacity-50" />
+                <span>Upload a file to analyze</span>
               </>
             ) : (
               <>
@@ -132,18 +149,30 @@ export default function BeatEnginePanel({
               </>
             )}
           </Button>
-          
+
           {/* Progress */}
           {isAnalyzing && (
             <div className="space-y-2">
               <div className="flex items-center justify-between text-xs">
-                <span className="text-muted-foreground">Detecting beats...</span>
+                <span className="text-muted-foreground">
+                  {analysisProgress < 40 ? 'Decoding audio...' :
+                   analysisProgress < 70 ? 'Detecting beats...' :
+                   'Computing energy curve...'}
+                </span>
                 <span className="font-mono text-primary">{Math.round(analysisProgress)}%</span>
               </div>
               <Progress value={analysisProgress} className="h-2" />
             </div>
           )}
-          
+
+          {/* Error */}
+          {analysisError && (
+            <div className="flex items-center gap-2 p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-xs text-destructive">
+              <AlertCircle className="w-4 h-4 flex-shrink-0" />
+              <span>{analysisError}</span>
+            </div>
+          )}
+
           {/* BPM Display */}
           {detectedBPM && (
             <div className="flex items-center justify-between p-3 rounded-lg bg-gradient-to-r from-primary/10 to-accent/10 border border-primary/20">
@@ -156,21 +185,31 @@ export default function BeatEnginePanel({
                   <p className="text-xl font-bold text-primary font-mono">{detectedBPM} <span className="text-xs font-normal">BPM</span></p>
                 </div>
               </div>
-              <Badge variant="outline" className="bg-success/10 border-success/30 text-success">
-                <CheckCircle className="w-3 h-3 mr-1" />
-                Synced
-              </Badge>
+              <div className="text-right">
+                <Badge variant="outline" className="bg-success/10 border-success/30 text-success">
+                  <CheckCircle className="w-3 h-3 mr-1" />
+                  Real Analysis
+                </Badge>
+                {analysisResult && (
+                  <p className="text-[9px] text-muted-foreground mt-1">
+                    {analysisResult.beatTimestamps.length} beats · {Math.round(analysisResult.duration)}s
+                  </p>
+                )}
+              </div>
             </div>
           )}
         </div>
       </div>
 
-      {/* Energy Visualization */}
-      {detectedBPM && (
+      {/* Energy Visualization — real data */}
+      {energyCurve.length > 0 && (
         <div className="panel p-4">
           <div className="flex items-center gap-2 mb-3">
             <BarChart3 className="w-3.5 h-3.5 text-accent" />
             <span className="text-xs font-semibold">Energy Curve</span>
+            <Badge variant="outline" className="text-[8px] ml-auto">
+              {energyCurve.length} segments
+            </Badge>
           </div>
           <div className="h-16 flex items-end gap-0.5 bg-muted/20 rounded-lg p-2 overflow-hidden">
             {energyCurve.map((value, i) => (
@@ -183,10 +222,10 @@ export default function BeatEnginePanel({
           </div>
           <div className="flex justify-between text-[9px] text-muted-foreground mt-1">
             <span>0:00</span>
-            <span>Verse</span>
-            <span>Chorus</span>
-            <span>Drop</span>
-            <span>End</span>
+            <span>{analysisResult ? `${Math.round(analysisResult.duration / 4)}s` : ''}</span>
+            <span>{analysisResult ? `${Math.round(analysisResult.duration / 2)}s` : ''}</span>
+            <span>{analysisResult ? `${Math.round(analysisResult.duration * 3 / 4)}s` : ''}</span>
+            <span>{analysisResult ? `${Math.round(analysisResult.duration)}s` : ''}</span>
           </div>
         </div>
       )}
@@ -206,8 +245,8 @@ export default function BeatEnginePanel({
                 key={type.id}
                 className={cn(
                   'p-2 rounded-lg border text-center transition-all cursor-pointer',
-                  type.syncable 
-                    ? 'border-primary/30 bg-primary/5 hover:bg-primary/10' 
+                  type.syncable
+                    ? 'border-primary/30 bg-primary/5 hover:bg-primary/10'
                     : 'border-border/50 bg-muted/20'
                 )}
               >
@@ -241,14 +280,13 @@ export default function BeatEnginePanel({
           <div className="p-4 space-y-2">
             {BEAT_SYNC_RULES.map((rule) => {
               const isActive = beatRules.includes(rule.id);
-              
               return (
                 <div
                   key={rule.id}
                   className={cn(
                     'p-3 rounded-lg border cursor-pointer transition-all',
-                    isActive 
-                      ? 'border-primary/40 bg-primary/10' 
+                    isActive
+                      ? 'border-primary/40 bg-primary/10'
                       : 'border-border/50 bg-muted/20 hover:bg-muted/30',
                     disabled && 'opacity-50 pointer-events-none'
                   )}
@@ -291,10 +329,9 @@ export default function BeatEnginePanel({
           </div>
           {showAdvanced ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
         </button>
-        
+
         {showAdvanced && (
           <div className="p-4 space-y-4">
-            {/* Sensitivity */}
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <label className="text-xs font-medium">Beat Sensitivity</label>
@@ -310,7 +347,6 @@ export default function BeatEnginePanel({
               />
             </div>
 
-            {/* Beat Offset */}
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <label className="text-xs font-medium">Beat Offset</label>
@@ -326,7 +362,6 @@ export default function BeatEnginePanel({
               />
             </div>
 
-            {/* Quantize Toggle */}
             <div className="flex items-center justify-between p-3 rounded-lg bg-muted/30 border border-border/50">
               <div>
                 <p className="text-xs font-medium">Quantize Cuts</p>

@@ -3,22 +3,20 @@ import { SHOT_ANALYSIS_TYPES, type ShotAnalysis } from '@/lib/presets';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Switch } from '@/components/ui/switch';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Slider } from '@/components/ui/slider';
 import { Progress } from '@/components/ui/progress';
-import { 
-  Eye, 
-  Scan, 
-  Camera, 
-  Sparkles, 
-  Lightbulb, 
-  User, 
-  Zap, 
+import { analyzeVideo, type VideoAnalysisResult, type SceneChange } from '@/lib/videoAnalysis';
+import {
+  Eye,
+  Scan,
+  Camera,
+  Sparkles,
+  Lightbulb,
+  User,
+  Zap,
   Heart,
   CheckCircle,
   AlertCircle,
-  Play,
   Filter,
   Star,
   Video,
@@ -29,13 +27,17 @@ import {
   Gauge,
   Lock,
   Image,
-  Frame
+  Frame,
+  Clock,
+  Palette
 } from 'lucide-react';
 
 interface ShotIntelligencePanelProps {
   analysisRules: Record<string, string[]>;
   onRulesChange: (rules: Record<string, string[]>) => void;
   disabled?: boolean;
+  file?: File | null;
+  onAnalysisComplete?: (result: VideoAnalysisResult) => void;
 }
 
 const categoryIcons: Record<string, React.ReactNode> = {
@@ -72,15 +74,20 @@ interface ShotFilter {
   values: string[];
 }
 
-export default function ShotIntelligencePanel({ 
-  analysisRules, 
-  onRulesChange, 
-  disabled 
+export default function ShotIntelligencePanel({
+  analysisRules,
+  onRulesChange,
+  disabled,
+  file,
+  onAnalysisComplete
 }: ShotIntelligencePanelProps) {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisProgress, setAnalysisProgress] = useState(0);
+  const [analysisStatus, setAnalysisStatus] = useState('');
   const [activeFilters, setActiveFilters] = useState<ShotFilter[]>([]);
   const [expandedCategory, setExpandedCategory] = useState<string | null>('framing');
+  const [analysisResult, setAnalysisResult] = useState<VideoAnalysisResult | null>(null);
+  const [analysisError, setAnalysisError] = useState<string | null>(null);
 
   const analysisByCategory = SHOT_ANALYSIS_TYPES.reduce((acc, analysis) => {
     if (!acc[analysis.category]) acc[analysis.category] = [];
@@ -88,21 +95,32 @@ export default function ShotIntelligencePanel({
     return acc;
   }, {} as Record<string, ShotAnalysis[]>);
 
-  const handleStartAnalysis = () => {
+  const handleStartAnalysis = async () => {
+    if (!file) return;
+
     setIsAnalyzing(true);
     setAnalysisProgress(0);
-    
-    // Simulate analysis progress
-    const interval = setInterval(() => {
-      setAnalysisProgress(prev => {
-        if (prev >= 100) {
-          clearInterval(interval);
-          setIsAnalyzing(false);
-          return 100;
-        }
-        return prev + Math.random() * 15;
+    setAnalysisError(null);
+    setAnalysisStatus('Loading video...');
+
+    try {
+      const result = await analyzeVideo(file, 0.5, 0.15, (progress) => {
+        setAnalysisProgress(progress);
+        if (progress < 10) setAnalysisStatus('Loading video metadata...');
+        else if (progress < 50) setAnalysisStatus('Analyzing frames...');
+        else if (progress < 90) setAnalysisStatus('Detecting scene changes...');
+        else setAnalysisStatus('Finalizing...');
       });
-    }, 300);
+
+      setAnalysisResult(result);
+      onAnalysisComplete?.(result);
+      setAnalysisStatus(`Found ${result.sceneChanges.length} scene changes in ${result.frameCount} frames`);
+    } catch (err) {
+      setAnalysisError(err instanceof Error ? err.message : 'Analysis failed');
+      setAnalysisStatus('');
+    } finally {
+      setIsAnalyzing(false);
+    }
   };
 
   const handleToggleValue = (analysisId: string, value: string) => {
@@ -110,7 +128,7 @@ export default function ShotIntelligencePanel({
     const updated = current.includes(value)
       ? current.filter(v => v !== value)
       : [...current, value];
-    
+
     onRulesChange({
       ...analysisRules,
       [analysisId]: updated,
@@ -130,6 +148,13 @@ export default function ShotIntelligencePanel({
     setActiveFilters(prev => prev.filter(f => f.id !== filterId));
   };
 
+  const formatTimestamp = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    const ms = Math.round((seconds % 1) * 10);
+    return `${mins}:${secs.toString().padStart(2, '0')}.${ms}`;
+  };
+
   return (
     <div className="space-y-4">
       {/* Header Panel */}
@@ -143,17 +168,18 @@ export default function ShotIntelligencePanel({
             AI-Powered
           </Badge>
         </div>
-        
+
         <div className="p-4 space-y-4">
           <p className="text-xs text-muted-foreground">
-            AI analyzes your footage to detect shot types, camera motion, faces, lighting, and more. 
-            Use filters to automatically select the best shots.
+            {file
+              ? 'Analyze your video to detect scene changes, brightness patterns, and shot composition.'
+              : 'Upload a video first to analyze shot composition and scene changes.'}
           </p>
-          
+
           {/* Analysis Button */}
           <Button
             onClick={handleStartAnalysis}
-            disabled={disabled || isAnalyzing}
+            disabled={disabled || isAnalyzing || !file}
             className="w-full h-12 gap-2 bg-gradient-to-r from-primary via-accent to-primary text-primary-foreground"
           >
             {isAnalyzing ? (
@@ -164,23 +190,117 @@ export default function ShotIntelligencePanel({
             ) : (
               <>
                 <Scan className="w-5 h-5" />
-                <span>Analyze All Clips</span>
+                <span>{file ? 'Analyze Video' : 'No Video Loaded'}</span>
               </>
             )}
           </Button>
-          
+
           {/* Progress */}
           {isAnalyzing && (
             <div className="space-y-2">
               <div className="flex items-center justify-between text-xs">
-                <span className="text-muted-foreground">Processing clips...</span>
+                <span className="text-muted-foreground">{analysisStatus}</span>
                 <span className="font-mono text-primary">{Math.round(analysisProgress)}%</span>
               </div>
               <Progress value={analysisProgress} className="h-2" />
             </div>
           )}
+
+          {/* Error */}
+          {analysisError && (
+            <div className="bg-destructive/10 border border-destructive/30 rounded-md p-3">
+              <div className="flex items-center gap-2">
+                <AlertCircle className="w-3.5 h-3.5 text-destructive" />
+                <span className="text-xs text-destructive">{analysisError}</span>
+              </div>
+            </div>
+          )}
+
+          {/* Completed Status */}
+          {!isAnalyzing && analysisResult && !analysisError && (
+            <div className="bg-success/10 border border-success/30 rounded-md p-3">
+              <div className="flex items-center gap-2">
+                <CheckCircle className="w-3.5 h-3.5 text-success" />
+                <span className="text-xs text-success">{analysisStatus}</span>
+              </div>
+            </div>
+          )}
         </div>
       </div>
+
+      {/* Detected Scene Changes */}
+      {analysisResult && analysisResult.sceneChanges.length > 0 && (
+        <div className="panel">
+          <div className="panel-header">
+            <div className="flex items-center gap-2">
+              <Video className="w-3.5 h-3.5 text-accent" />
+              <span className="panel-title">Detected Scene Changes</span>
+            </div>
+            <Badge variant="outline" className="text-[9px]">
+              {analysisResult.sceneChanges.length} scenes
+            </Badge>
+          </div>
+          <div className="p-4 space-y-3">
+            {/* Summary Stats */}
+            <div className="grid grid-cols-3 gap-2">
+              <div className="bg-muted/30 rounded-md p-2 text-center">
+                <div className="text-lg font-bold text-primary">{analysisResult.sceneChanges.length}</div>
+                <div className="text-[9px] text-muted-foreground">Scene Changes</div>
+              </div>
+              <div className="bg-muted/30 rounded-md p-2 text-center">
+                <div className="text-lg font-bold text-accent">{analysisResult.frameCount}</div>
+                <div className="text-[9px] text-muted-foreground">Frames Analyzed</div>
+              </div>
+              <div className="bg-muted/30 rounded-md p-2 text-center">
+                <div className="text-lg font-bold text-yellow-400">{Math.round(analysisResult.averageBrightness * 100)}%</div>
+                <div className="text-[9px] text-muted-foreground">Avg Brightness</div>
+              </div>
+            </div>
+
+            {/* Scene Change List */}
+            <ScrollArea className="h-[180px]">
+              <div className="space-y-2 pr-2">
+                {analysisResult.sceneChanges.map((scene: SceneChange, idx: number) => (
+                  <div
+                    key={idx}
+                    className="flex items-center gap-3 bg-muted/20 rounded-md p-2 hover:bg-muted/40 transition-colors"
+                  >
+                    {/* Color Swatch */}
+                    <div
+                      className="w-8 h-8 rounded-md border border-border/50 flex-shrink-0"
+                      style={{
+                        backgroundColor: `rgb(${scene.dominantColor.r}, ${scene.dominantColor.g}, ${scene.dominantColor.b})`,
+                      }}
+                    />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <Clock className="w-3 h-3 text-muted-foreground" />
+                        <span className="text-xs font-mono font-semibold">
+                          {formatTimestamp(scene.timestamp)}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-3 mt-0.5">
+                        <span className="text-[9px] text-muted-foreground flex items-center gap-1">
+                          <Sun className="w-2.5 h-2.5" />
+                          {Math.round(scene.brightness * 100)}%
+                        </span>
+                        <span className="text-[9px] text-muted-foreground flex items-center gap-1">
+                          <Palette className="w-2.5 h-2.5" />
+                          rgb({scene.dominantColor.r},{scene.dominantColor.g},{scene.dominantColor.b})
+                        </span>
+                        <span className="text-[9px] text-muted-foreground flex items-center gap-1">
+                          <Zap className="w-2.5 h-2.5" />
+                          {Math.round(scene.difference * 100)}% diff
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </ScrollArea>
+          </div>
+        </div>
+      )}
 
       {/* Active Filters */}
       {activeFilters.length > 0 && (
@@ -239,7 +359,7 @@ export default function ShotIntelligencePanel({
                   {analyses.length} types
                 </Badge>
               </button>
-              
+
               {expandedCategory === category && (
                 <div className="p-4 space-y-4">
                   {analyses.map((analysis) => (
@@ -249,7 +369,7 @@ export default function ShotIntelligencePanel({
                         <span className="text-xs font-semibold">{analysis.name}</span>
                       </div>
                       <p className="text-[10px] text-muted-foreground">{analysis.description}</p>
-                      
+
                       {/* Value Pills */}
                       <div className="flex flex-wrap gap-1.5">
                         {analysis.values.map((value) => {
@@ -260,8 +380,8 @@ export default function ShotIntelligencePanel({
                               variant="outline"
                               className={cn(
                                 'text-[9px] px-2 py-0.5 cursor-pointer transition-all',
-                                isSelected 
-                                  ? 'bg-primary/20 border-primary/40 text-primary' 
+                                isSelected
+                                  ? 'bg-primary/20 border-primary/40 text-primary'
                                   : 'hover:bg-muted/50'
                               )}
                               onClick={() => handleToggleValue(analysis.id, value)}
@@ -272,7 +392,7 @@ export default function ShotIntelligencePanel({
                           );
                         })}
                       </div>
-                      
+
                       {/* Quick Actions */}
                       {analysisRules[analysis.id]?.length > 0 && (
                         <div className="flex gap-2 pt-1">

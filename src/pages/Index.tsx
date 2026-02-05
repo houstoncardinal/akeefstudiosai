@@ -1,39 +1,42 @@
- import { useState, useEffect, useRef, useCallback } from 'react';
- import { supabase } from '@/integrations/supabase/client';
- import { useToast } from '@/hooks/use-toast';
- import { 
-   STYLE_PRESETS, 
-   COLOR_GRADES, 
-   EFFECT_PRESETS, 
-   GRAPHICS_TEMPLATES,
-   VERSION_TYPES,
-   EXPORT_FORMATS,
-   AI_MODELS 
- } from '@/lib/presets';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
+import {
+  STYLE_PRESETS,
+  COLOR_GRADES,
+  EFFECT_PRESETS,
+  GRAPHICS_TEMPLATES,
+  VERSION_TYPES,
+  EXPORT_FORMATS,
+  AI_MODELS,
+  CINEMATIC_LUTS
+} from '@/lib/presets';
 import { type VideoFormat } from '@/lib/formats';
- import Header from '@/components/studio/Header';
- import SourcePanel from '@/components/studio/SourcePanel';
+import { type AudioAnalysisResult } from '@/lib/audioAnalysis';
+import { type VideoAnalysisResult } from '@/lib/videoAnalysis';
+import Header from '@/components/studio/Header';
+import SourcePanel from '@/components/studio/SourcePanel';
 import TimelineVisualizerDetailed from '@/components/studio/TimelineVisualizerDetailed';
 import VideoPreviewPanel from '@/components/studio/VideoPreviewPanel';
- import StylePanel from '@/components/studio/StylePanel';
- import ColorPanel from '@/components/studio/ColorPanel';
- import EffectsPanel from '@/components/studio/EffectsPanel';
- import GraphicsPanel from '@/components/studio/GraphicsPanel';
- import VersionPanel from '@/components/studio/VersionPanel';
- import ExportPanel from '@/components/studio/ExportPanel';
- import OutputPanel from '@/components/studio/OutputPanel';
- import ProcessingOverlay from '@/components/studio/ProcessingOverlay';
- import FormatToolsPanel from '@/components/studio/FormatToolsPanel';
- import CustomRulesEditor from '@/components/studio/CustomRulesEditor';
- import TransitionsPanel from '@/components/studio/TransitionsPanel';
- import ShotIntelligencePanel from '@/components/studio/ShotIntelligencePanel';
- import BeatEnginePanel from '@/components/studio/BeatEnginePanel';
- import DirectorIntentPanel from '@/components/studio/DirectorIntentPanel';
+import StylePanel from '@/components/studio/StylePanel';
+import ColorPanel, { type ColorSettings } from '@/components/studio/ColorPanel';
+import EffectsPanel, { type EffectOverrides } from '@/components/studio/EffectsPanel';
+import GraphicsPanel from '@/components/studio/GraphicsPanel';
+import VersionPanel from '@/components/studio/VersionPanel';
+import ExportPanel from '@/components/studio/ExportPanel';
+import OutputPanel from '@/components/studio/OutputPanel';
+import ProcessingOverlay from '@/components/studio/ProcessingOverlay';
+import FormatToolsPanel from '@/components/studio/FormatToolsPanel';
+import CustomRulesEditor from '@/components/studio/CustomRulesEditor';
+import TransitionsPanel from '@/components/studio/TransitionsPanel';
+import ShotIntelligencePanel from '@/components/studio/ShotIntelligencePanel';
+import BeatEnginePanel from '@/components/studio/BeatEnginePanel';
+import DirectorIntentPanel from '@/components/studio/DirectorIntentPanel';
 import FeedbackPanel from '@/components/studio/FeedbackPanel';
 import MultiVersionPanel from '@/components/studio/MultiVersionPanel';
 import CustomRulesEditorEnhanced from '@/components/studio/CustomRulesEditorEnhanced';
 import PanelWrapper from '@/components/studio/PanelWrapper';
- import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/components/ui/resizable';
  import { 
    Palette, 
@@ -118,7 +121,13 @@ import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/componen
   
   // Detected format
   const [detectedFormat, setDetectedFormat] = useState<VideoFormat | null>(null);
-   const [detectedBPM, setDetectedBPM] = useState<number | null>(128);
+  const [detectedBPM, setDetectedBPM] = useState<number | null>(null);
+
+  // Analysis results
+  const [audioAnalysis, setAudioAnalysis] = useState<AudioAnalysisResult | null>(null);
+  const [videoAnalysis, setVideoAnalysis] = useState<VideoAnalysisResult | null>(null);
+  const [colorSettings, setColorSettings] = useState<ColorSettings | null>(null);
+  const [effectOverrides, setEffectOverrides] = useState<EffectOverrides | null>(null);
  
    // Processing state
    const [processingState, setProcessingState] = useState<ProcessingState>('idle');
@@ -161,53 +170,98 @@ import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/componen
     setDetectedFormat(format);
   };
 
-   const buildFullPrompt = () => {
-     const style = STYLE_PRESETS.find(s => s.id === config.style);
-     const colorGrade = COLOR_GRADES.find(c => c.id === config.colorGrade);
-     const effects = EFFECT_PRESETS.find(e => e.id === config.effectPreset);
-     const graphics = config.graphics.map(g => GRAPHICS_TEMPLATES.find(t => t.id === g)).filter(Boolean);
-     const versions = config.versions.map(v => VERSION_TYPES.find(t => t.id === v)).filter(Boolean);
-     const directorIntent = config.directorIntent ? STYLE_PRESETS.find(s => s.id === config.directorIntent) : null;
-     const transitions = config.transitions || [];
-     const beatRules = config.beatRules || [];
-     const shotRules = config.shotAnalysisRules || {};
-     return `
- === AKEEF STUDIO AI - ADVANCED EDIT CONFIGURATION ===
+  const handleAudioAnalysisComplete = (result: AudioAnalysisResult) => {
+    setAudioAnalysis(result);
+    setDetectedBPM(result.bpm);
+  };
+
+  const handleVideoAnalysisComplete = (result: VideoAnalysisResult) => {
+    setVideoAnalysis(result);
+  };
+
+  const handleColorSettingsChange = (settings: ColorSettings) => {
+    setColorSettings(settings);
+  };
+
+  const handleEffectOverridesChange = (overrides: EffectOverrides) => {
+    setEffectOverrides(overrides);
+  };
+
+  const buildFullPrompt = () => {
+    const style = STYLE_PRESETS.find(s => s.id === config.style);
+    const lut = CINEMATIC_LUTS.find(l => l.id === config.colorGrade);
+    const effects = EFFECT_PRESETS.find(e => e.id === config.effectPreset);
+    const graphics = config.graphics.map(g => GRAPHICS_TEMPLATES.find(t => t.id === g)).filter(Boolean);
+    const versions = config.versions.map(v => VERSION_TYPES.find(t => t.id === v)).filter(Boolean);
+    const transitions = config.transitions || [];
+    const beatRules = config.beatRules || [];
+    const shotRules = config.shotAnalysisRules || {};
+
+    // Color values — custom overrides or LUT defaults
+    const cs = colorSettings ?? (lut ? {
+      contrast: lut.settings.contrast,
+      saturation: lut.settings.saturation,
+      temperature: lut.settings.temperature,
+      shadows: lut.settings.shadows,
+      highlights: lut.settings.highlights,
+    } : null);
+
+    // Enabled effects after overrides
+    const enabledTransitions = effects
+      ? effects.transitions.filter(t => !effectOverrides?.disabledTransitions.includes(t))
+      : [];
+    const enabledMotionEffects = effects
+      ? effects.motionEffects.filter(e => !effectOverrides?.disabledMotionEffects.includes(e))
+      : [];
+
+    // Scene change timestamps from real analysis
+    const sceneTimestamps = videoAnalysis?.sceneChanges.map(sc => sc.timestamp) || [];
+
+    return `
+=== AKEEF STUDIO AI - ADVANCED EDIT CONFIGURATION ===
 
 SOURCE FORMAT: ${detectedFormat?.name || 'Auto-detect'}
 CODEC: ${detectedFormat?.codec || 'Various'}
 CATEGORY: ${detectedFormat?.category || 'Unknown'}
- 
- PRIMARY STYLE: ${style?.name || 'Custom'}
- ${config.customRules}
- 
- === COLOR GRADING ===
- LUT: ${colorGrade?.name || 'None'}
- ${colorGrade ? `
- - Contrast: ${colorGrade.settings.contrast}
- - Saturation: ${colorGrade.settings.saturation}
- - Temperature: ${colorGrade.settings.temperature}K shift
- - Shadows: ${colorGrade.settings.shadows}
- - Highlights: ${colorGrade.settings.highlights}
- ` : ''}
- 
- === EFFECTS & TRANSITIONS ===
- Mode: ${effects?.name || 'None'}
- Intensity: ${effects?.intensity || 'moderate'}
- ${effects ? `
- Transitions to use: ${effects.transitions.join(', ')}
- Motion effects: ${effects.motionEffects.join(', ')}
- ` : ''}
+
+PRIMARY STYLE: ${style?.name || 'Custom'}
+${config.customRules}
+
+=== COLOR GRADING ===
+LUT: ${lut?.name || 'None'}
+${cs ? `Custom Color Settings:
+- Contrast: ${cs.contrast}
+- Saturation: ${cs.saturation}
+- Temperature: ${cs.temperature}K shift
+- Shadows: ${cs.shadows}
+- Highlights: ${cs.highlights}` : ''}
+
+=== EFFECTS & TRANSITIONS ===
+Mode: ${effects?.name || 'None'}
+Intensity: ${effects?.intensity || 'moderate'}
+Enabled Transitions: ${enabledTransitions.length > 0 ? enabledTransitions.join(', ') : 'None'}
+Enabled Motion Effects: ${enabledMotionEffects.length > 0 ? enabledMotionEffects.join(', ') : 'None'}
+${effectOverrides && (effectOverrides.disabledTransitions.length > 0 || effectOverrides.disabledMotionEffects.length > 0)
+  ? `Disabled by user: ${[...effectOverrides.disabledTransitions, ...effectOverrides.disabledMotionEffects].join(', ')}` : ''}
 
 === SELECTED TRANSITIONS ===
 ${transitions.length > 0 ? transitions.map(t => `- ${t.replace(/_/g, ' ')}`).join('\n') : 'Default transitions'}
- 
+
 === AI PROCESSING TOOLS ===
 ${config.formatTools.length > 0 ? config.formatTools.join(', ') : 'Standard processing'}
 
 === BEAT SYNC RULES ===
 ${beatRules.length > 0 ? beatRules.map(r => `- ${r.replace(/_/g, ' ')}`).join('\n') : 'No beat sync'}
 Detected BPM: ${detectedBPM || 'Unknown'}
+${audioAnalysis ? `Beat Timestamps (${audioAnalysis.beatTimestamps.length} beats): ${audioAnalysis.beatTimestamps.slice(0, 30).map(t => t.toFixed(2) + 's').join(', ')}${audioAnalysis.beatTimestamps.length > 30 ? '...' : ''}
+Audio Duration: ${audioAnalysis.duration.toFixed(1)}s
+Energy Curve (${audioAnalysis.energyCurve.length} segments): ${audioAnalysis.energyCurve.map(v => v.toFixed(2)).join(', ')}` : ''}
+
+=== VIDEO ANALYSIS ===
+${videoAnalysis ? `Frames Analyzed: ${videoAnalysis.frameCount}
+Duration: ${videoAnalysis.duration.toFixed(1)}s
+Average Brightness: ${Math.round(videoAnalysis.averageBrightness * 100)}%
+Scene Changes (${videoAnalysis.sceneChanges.length}): ${sceneTimestamps.map(t => t.toFixed(1) + 's').join(', ')}` : 'No video analysis performed'}
 
 === SHOT INTELLIGENCE RULES ===
 ${Object.keys(shotRules).length > 0 ? Object.entries(shotRules).map(([key, values]) => `- ${key}: ${(values as string[]).join(', ')}`).join('\n') : 'No shot filters'}
@@ -216,15 +270,15 @@ ${Object.keys(shotRules).length > 0 ? Object.entries(shotRules).map(([key, value
 ${config.directorIntent ? `Mode: ${config.directorIntent}` : 'None'}
 ${config.customIntent ? `Custom Vision: ${config.customIntent}` : ''}
 
- === GRAPHICS & TITLES ===
- ${graphics.length > 0 ? graphics.map(g => `- ${g?.name}: ${g?.description}`).join('\n') : 'No graphics selected'}
- 
- === VERSION OUTPUTS ===
- ${versions.map(v => `- ${v?.name} (${v?.duration}, ${v?.aspectRatio})`).join('\n')}
- 
- Apply all these settings to create a professional edit. Output valid FCPXML only.
- `;
-   };
+=== GRAPHICS & TITLES ===
+${graphics.length > 0 ? graphics.map(g => `- ${g?.name}: ${g?.description}`).join('\n') : 'No graphics selected'}
+
+=== VERSION OUTPUTS ===
+${versions.map(v => `- ${v?.name} (${v?.duration}, ${v?.aspectRatio})`).join('\n')}
+
+Apply all these settings to create a professional edit. Output valid FCPXML only.
+`;
+  };
  
    // Track active timers for cleanup
    const timersRef = useRef<number[]>([]);
@@ -391,6 +445,9 @@ ${config.customIntent ? `Custom Vision: ${config.customIntent}` : ''}
                     colorGrade={config.colorGrade}
                     effectPreset={config.effectPreset}
                     isProcessing={isProcessing}
+                    colorSettings={colorSettings}
+                    beatTimestamps={audioAnalysis?.beatTimestamps}
+                    sceneChangeTimestamps={videoAnalysis?.sceneChanges.map(sc => sc.timestamp)}
                   />
                   <TimelineVisualizerDetailed
                     fileContent={fileContent}
@@ -509,7 +566,8 @@ ${config.customIntent ? `Custom Vision: ${config.customIntent}` : ''}
                        <PanelWrapper title="Color" icon={<Palette className="w-4 h-4" />}>
                          <ColorPanel
                            colorGrade={config.colorGrade}
-                           onColorGradeChange={(colorGrade) => updateConfig({ colorGrade })}
+                           onColorGradeChange={(colorGrade) => { updateConfig({ colorGrade }); setColorSettings(null); }}
+                           onColorSettingsChange={handleColorSettingsChange}
                            disabled={isProcessing}
                          />
                        </PanelWrapper>
@@ -519,7 +577,8 @@ ${config.customIntent ? `Custom Vision: ${config.customIntent}` : ''}
                        <PanelWrapper title="Effects" icon={<Zap className="w-4 h-4" />}>
                          <EffectsPanel
                            effectPreset={config.effectPreset}
-                           onEffectPresetChange={(effectPreset) => updateConfig({ effectPreset })}
+                           onEffectPresetChange={(effectPreset) => { updateConfig({ effectPreset }); setEffectOverrides(null); }}
+                           onEffectOverridesChange={handleEffectOverridesChange}
                            disabled={isProcessing}
                          />
                        </PanelWrapper>
@@ -573,6 +632,8 @@ ${config.customIntent ? `Custom Vision: ${config.customIntent}` : ''}
                            analysisRules={config.shotAnalysisRules}
                            onRulesChange={(shotAnalysisRules) => updateConfig({ shotAnalysisRules })}
                            disabled={isProcessing}
+                           file={file}
+                           onAnalysisComplete={handleVideoAnalysisComplete}
                          />
                        </PanelWrapper>
                      </TabsContent>
@@ -580,8 +641,10 @@ ${config.customIntent ? `Custom Vision: ${config.customIntent}` : ''}
                      <TabsContent value="beats" className="m-0 h-full">
                        <PanelWrapper title="Beats" icon={<Music className="w-4 h-4" />}>
                          <BeatEnginePanel
+                           file={file}
                            beatRules={config.beatRules}
                            onBeatRulesChange={(beatRules) => updateConfig({ beatRules })}
+                           onAnalysisComplete={handleAudioAnalysisComplete}
                            disabled={isProcessing}
                          />
                        </PanelWrapper>

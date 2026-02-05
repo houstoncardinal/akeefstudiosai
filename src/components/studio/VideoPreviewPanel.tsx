@@ -1,21 +1,17 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
 import { cn } from '@/lib/utils';
-import { 
-  Play, 
-  Pause, 
-  SkipBack, 
-  SkipForward, 
-  Volume2, 
+import {
+  Play,
+  Pause,
+  SkipBack,
+  SkipForward,
+  Volume2,
   VolumeX,
-  Maximize2,
-  Minimize2,
   Eye,
   EyeOff,
-  Layers,
   Palette,
   Sparkles,
   Film,
-  Settings2,
   RotateCcw,
   ZoomIn,
   ZoomOut,
@@ -24,8 +20,8 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
-import { Switch } from '@/components/ui/switch';
 import { type VideoFormat } from '@/lib/formats';
+import { type ColorSettings } from '@/components/studio/ColorPanel';
 
 interface VideoPreviewPanelProps {
   file: File | null;
@@ -33,21 +29,20 @@ interface VideoPreviewPanelProps {
   colorGrade: string;
   effectPreset: string;
   isProcessing: boolean;
+  colorSettings?: ColorSettings | null;
+  beatTimestamps?: number[];
+  sceneChangeTimestamps?: number[];
 }
 
-interface EffectOverlay {
-  id: string;
-  name: string;
-  enabled: boolean;
-  cssFilter: string;
-}
-
-export default function VideoPreviewPanel({ 
-  file, 
+export default function VideoPreviewPanel({
+  file,
   detectedFormat,
   colorGrade,
   effectPreset,
-  isProcessing 
+  isProcessing,
+  colorSettings,
+  beatTimestamps,
+  sceneChangeTimestamps
 }: VideoPreviewPanelProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -55,58 +50,52 @@ export default function VideoPreviewPanel({
   const [duration, setDuration] = useState(0);
   const [volume, setVolume] = useState(1);
   const [isMuted, setIsMuted] = useState(false);
-  const [isFullscreen, setIsFullscreen] = useState(false);
   const [showOverlays, setShowOverlays] = useState(true);
   const [showGrid, setShowGrid] = useState(false);
   const [zoom, setZoom] = useState(100);
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
 
-  // Effect overlays based on current settings
-  const effectOverlays = useMemo<EffectOverlay[]>(() => {
-    const overlays: EffectOverlay[] = [];
-
-    // Color grade CSS filters
-    const gradeFilters: Record<string, string> = {
-      'teal_orange': 'sepia(0.2) saturate(1.3) hue-rotate(-10deg) contrast(1.1)',
-      'vintage_film': 'sepia(0.4) saturate(0.8) contrast(1.1) brightness(0.95)',
-      'moody_desat': 'saturate(0.5) contrast(1.3) brightness(0.9)',
-      'vibrant_pop': 'saturate(1.5) contrast(1.2) brightness(1.05)',
-      'neon_nights': 'saturate(1.4) contrast(1.3) hue-rotate(15deg) brightness(0.95)',
-      'golden_hour': 'sepia(0.3) saturate(1.2) brightness(1.1) contrast(0.95)',
-      'bw_classic': 'grayscale(1) contrast(1.3)',
-      'thriller_cold': 'saturate(0.7) hue-rotate(-20deg) contrast(1.2) brightness(0.9)',
-    };
-
-    if (colorGrade && gradeFilters[colorGrade]) {
-      overlays.push({
-        id: 'color_grade',
-        name: 'Color Grade',
-        enabled: true,
-        cssFilter: gradeFilters[colorGrade],
-      });
-    }
-
-    // Effect preset overlays
-    if (effectPreset === 'hype_mode') {
-      overlays.push({
-        id: 'vignette',
-        name: 'Vignette',
-        enabled: true,
-        cssFilter: '',
-      });
-    }
-
-    return overlays;
-  }, [colorGrade, effectPreset]);
-
-  // Combined filter string
+  // Build CSS filter from custom color settings or fall back to LUT-based preset
   const combinedFilter = useMemo(() => {
     if (!showOverlays) return 'none';
-    return effectOverlays
-      .filter(o => o.enabled && o.cssFilter)
-      .map(o => o.cssFilter)
-      .join(' ') || 'none';
-  }, [effectOverlays, showOverlays]);
+
+    // If we have custom color settings, build filter dynamically
+    if (colorSettings) {
+      const parts: string[] = [];
+      if (colorSettings.contrast !== 1) parts.push(`contrast(${colorSettings.contrast})`);
+      if (colorSettings.saturation !== 1) parts.push(`saturate(${colorSettings.saturation})`);
+      // Temperature: positive = warm (sepia shift), negative = cool (hue-rotate blue)
+      if (colorSettings.temperature > 0) {
+        parts.push(`sepia(${Math.min(colorSettings.temperature / 100, 0.5)})`);
+      } else if (colorSettings.temperature < 0) {
+        parts.push(`hue-rotate(${Math.max(colorSettings.temperature * 0.4, -20)}deg)`);
+      }
+      // Shadows/highlights mapped to brightness shift
+      const brightnessAdjust = 1 + (colorSettings.highlights / 200) - (colorSettings.shadows / 400);
+      if (Math.abs(brightnessAdjust - 1) > 0.01) parts.push(`brightness(${brightnessAdjust.toFixed(3)})`);
+      return parts.length > 0 ? parts.join(' ') : 'none';
+    }
+
+    // Fall back to LUT-based preset filters
+    const gradeFilters: Record<string, string> = {
+      'teal-orange': 'sepia(0.2) saturate(1.3) hue-rotate(-10deg) contrast(1.1)',
+      'vintage-film': 'sepia(0.4) saturate(0.8) contrast(1.1) brightness(0.95)',
+      'moody-desat': 'saturate(0.5) contrast(1.3) brightness(0.9)',
+      'vibrant-pop': 'saturate(1.5) contrast(1.2) brightness(1.05)',
+      'neon-nights': 'saturate(1.4) contrast(1.3) hue-rotate(15deg) brightness(0.95)',
+      'golden-hour': 'sepia(0.3) saturate(1.2) brightness(1.1) contrast(0.95)',
+      'bw-classic': 'grayscale(1) contrast(1.3)',
+      'thriller-cold': 'saturate(0.7) hue-rotate(-20deg) contrast(1.2) brightness(0.9)',
+      'clean-natural': 'contrast(1.05) saturate(1.05)',
+      'blockbuster': 'contrast(1.2) saturate(1.1) brightness(0.95)',
+      'kodak-gold': 'sepia(0.15) saturate(1.3) contrast(1.05) brightness(1.02)',
+      'fuji-velvia': 'saturate(1.4) contrast(1.15)',
+      'scifi-green': 'hue-rotate(30deg) saturate(0.8) contrast(1.2)',
+      'romance-soft': 'saturate(0.9) brightness(1.08) contrast(0.92)',
+    };
+
+    return gradeFilters[colorGrade] || 'none';
+  }, [colorGrade, colorSettings, showOverlays]);
 
   // Create video URL from file
   useEffect(() => {
@@ -265,7 +254,7 @@ export default function VideoPreviewPanel({
 
         {/* Vignette Overlay */}
         {showOverlays && effectPreset === 'hype_mode' && (
-          <div 
+          <div
             className="absolute inset-0 z-10 pointer-events-none"
             style={{
               background: 'radial-gradient(ellipse at center, transparent 50%, rgba(0,0,0,0.4) 100%)'
@@ -278,7 +267,7 @@ export default function VideoPreviewPanel({
           ref={videoRef}
           src={videoUrl}
           className="w-full h-full object-contain"
-          style={{ 
+          style={{
             filter: combinedFilter,
             transform: `scale(${zoom / 100})`
           }}
@@ -286,18 +275,15 @@ export default function VideoPreviewPanel({
         />
 
         {/* Effect Labels */}
-        {showOverlays && effectOverlays.length > 0 && (
+        {showOverlays && combinedFilter !== 'none' && (
           <div className="absolute top-2 left-2 z-20 flex flex-col gap-1">
-            {effectOverlays.filter(o => o.enabled).map((overlay) => (
-              <Badge 
-                key={overlay.id}
-                variant="secondary" 
-                className="text-[8px] bg-black/60 text-white border-0 backdrop-blur-sm"
-              >
-                <Palette className="w-2.5 h-2.5 mr-1" />
-                {overlay.name}
-              </Badge>
-            ))}
+            <Badge
+              variant="secondary"
+              className="text-[8px] bg-black/60 text-white border-0 backdrop-blur-sm"
+            >
+              <Palette className="w-2.5 h-2.5 mr-1" />
+              {colorSettings ? 'Custom Grade' : 'Color Grade'}
+            </Badge>
           </div>
         )}
 
@@ -313,8 +299,36 @@ export default function VideoPreviewPanel({
 
       {/* Controls */}
       <div className="p-3 space-y-2 bg-card/50">
-        {/* Progress Bar */}
+        {/* Progress Bar with markers */}
         <div className="relative">
+          {/* Beat markers */}
+          {duration > 0 && beatTimestamps && beatTimestamps.length > 0 && (
+            <div className="absolute inset-x-0 top-0 bottom-0 z-10 pointer-events-none">
+              {beatTimestamps
+                .filter(t => t <= duration)
+                .map((t, i) => (
+                  <div
+                    key={`beat-${i}`}
+                    className="absolute top-0 w-[2px] h-full bg-primary/40 rounded-full"
+                    style={{ left: `${(t / duration) * 100}%` }}
+                  />
+                ))}
+            </div>
+          )}
+          {/* Scene change markers */}
+          {duration > 0 && sceneChangeTimestamps && sceneChangeTimestamps.length > 0 && (
+            <div className="absolute inset-x-0 top-0 bottom-0 z-10 pointer-events-none">
+              {sceneChangeTimestamps
+                .filter(t => t <= duration)
+                .map((t, i) => (
+                  <div
+                    key={`scene-${i}`}
+                    className="absolute top-0 w-[3px] h-full bg-accent/60 rounded-full"
+                    style={{ left: `${(t / duration) * 100}%` }}
+                  />
+                ))}
+            </div>
+          )}
           <Slider
             value={[currentTime]}
             max={duration || 100}
@@ -324,15 +338,33 @@ export default function VideoPreviewPanel({
           />
         </div>
 
+        {/* Marker legend */}
+        {duration > 0 && ((beatTimestamps && beatTimestamps.length > 0) || (sceneChangeTimestamps && sceneChangeTimestamps.length > 0)) && (
+          <div className="flex items-center gap-3">
+            {beatTimestamps && beatTimestamps.length > 0 && (
+              <div className="flex items-center gap-1">
+                <div className="w-2 h-2 rounded-full bg-primary/40" />
+                <span className="text-[8px] text-muted-foreground">Beats ({beatTimestamps.length})</span>
+              </div>
+            )}
+            {sceneChangeTimestamps && sceneChangeTimestamps.length > 0 && (
+              <div className="flex items-center gap-1">
+                <div className="w-2 h-2 rounded-full bg-accent/60" />
+                <span className="text-[8px] text-muted-foreground">Scenes ({sceneChangeTimestamps.length})</span>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Transport Controls */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-1">
             <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={skipBackward}>
               <SkipBack className="w-3.5 h-3.5" />
             </Button>
-            <Button 
-              variant="ghost" 
-              size="sm" 
+            <Button
+              variant="ghost"
+              size="sm"
               className={cn("h-8 w-8 p-0", isPlaying && "bg-primary/20")}
               onClick={togglePlay}
             >
@@ -363,42 +395,42 @@ export default function VideoPreviewPanel({
 
             {/* View Controls */}
             <div className="flex items-center gap-1 border-l border-border/50 pl-2">
-              <Button 
-                variant="ghost" 
-                size="sm" 
+              <Button
+                variant="ghost"
+                size="sm"
                 className={cn("h-6 w-6 p-0", showGrid && "bg-primary/20")}
                 onClick={() => setShowGrid(!showGrid)}
               >
                 <Grid3X3 className="w-3 h-3" />
               </Button>
-              <Button 
-                variant="ghost" 
-                size="sm" 
+              <Button
+                variant="ghost"
+                size="sm"
                 className={cn("h-6 w-6 p-0", showOverlays && "bg-primary/20")}
                 onClick={() => setShowOverlays(!showOverlays)}
               >
                 {showOverlays ? <Eye className="w-3 h-3" /> : <EyeOff className="w-3 h-3" />}
               </Button>
-              <Button 
-                variant="ghost" 
-                size="sm" 
+              <Button
+                variant="ghost"
+                size="sm"
                 className="h-6 w-6 p-0"
                 onClick={() => setZoom(prev => Math.min(200, prev + 25))}
               >
                 <ZoomIn className="w-3 h-3" />
               </Button>
-              <Button 
-                variant="ghost" 
-                size="sm" 
+              <Button
+                variant="ghost"
+                size="sm"
                 className="h-6 w-6 p-0"
                 onClick={() => setZoom(prev => Math.max(50, prev - 25))}
               >
                 <ZoomOut className="w-3 h-3" />
               </Button>
               {zoom !== 100 && (
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
+                <Button
+                  variant="ghost"
+                  size="sm"
                   className="h-6 w-6 p-0"
                   onClick={() => setZoom(100)}
                 >
