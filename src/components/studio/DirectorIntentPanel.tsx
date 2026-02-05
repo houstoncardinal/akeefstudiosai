@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import InsightTooltip, { FEATURE_TOOLTIPS } from './InsightTooltip';
 import { 
   Wand2, 
   Heart, 
@@ -19,7 +20,8 @@ import {
   Video,
   Sparkles,
   CheckCircle,
-  MessageSquare
+  MessageSquare,
+  HelpCircle
 } from 'lucide-react';
 
 interface DirectorIntentPanelProps {
@@ -76,6 +78,9 @@ export default function DirectorIntentPanel({
           <div className="flex items-center gap-2">
             <Wand2 className="w-3.5 h-3.5 text-primary" />
             <span className="panel-title">Director Intent Mode</span>
+            <InsightTooltip hint={FEATURE_TOOLTIPS['director-intent']} side="right">
+              <HelpCircle className="w-3 h-3 text-muted-foreground cursor-help" />
+            </InsightTooltip>
           </div>
           <Badge variant="outline" className="text-[9px] bg-primary/10 border-primary/30 text-primary">
             AI-Powered
@@ -198,6 +203,9 @@ export default function DirectorIntentPanel({
           <div className="flex items-center gap-2">
             <MessageSquare className="w-3.5 h-3.5 text-accent" />
             <span className="panel-title">Custom Intent</span>
+            <InsightTooltip hint={FEATURE_TOOLTIPS['ai-custom-intent']} side="right">
+              <HelpCircle className="w-3 h-3 text-muted-foreground cursor-help" />
+            </InsightTooltip>
           </div>
           <Badge variant="outline" className="text-[9px]">
             Describe Your Vision
