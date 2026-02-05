@@ -904,10 +904,7 @@ Apply all these settings to create a professional edit. Output valid FCPXML only
         {/* Scrollable main content */}
         <main className="flex-1 overflow-auto pb-20 safe-area-bottom">
           <div className="px-3 py-3 space-y-3">
-            {/* Workflow Progress - Prominent at top */}
-            <VisualWorkflowIndicator {...workflowIndicatorProps} />
 
-            
             {/* Collapsible media section */}
             <button
               onClick={() => setMediaCollapsed(!mediaCollapsed)}
@@ -973,6 +970,9 @@ Apply all these settings to create a professional edit. Output valid FCPXML only
               </div>
             </Tabs>
 
+            {/* Workflow Progress - Below main content on mobile */}
+            <VisualWorkflowIndicator {...workflowIndicatorProps} orientation="horizontal" />
+
             {/* Side panel (rules + output) below tools on mobile */}
             <div className="space-y-3 pt-2 border-t border-border/30">
               {renderSidePanel()}
@@ -1029,13 +1029,7 @@ Apply all these settings to create a professional edit. Output valid FCPXML only
       <div className="min-h-screen bg-background flex flex-col">
         <Header />
 
-        <main className="flex-1 overflow-hidden flex flex-col">
-          {/* Workflow Progress - Prominent at top */}
-          <div className="px-4 pt-4">
-            <VisualWorkflowIndicator {...workflowIndicatorProps} />
-          </div>
-
-          <div className="flex-1 overflow-hidden flex">
+        <main className="flex-1 overflow-hidden flex">
           {/* Left column: media + tools */}
           <div className="flex-1 overflow-auto pb-16">
             <div className="p-4 space-y-4">
@@ -1084,6 +1078,11 @@ Apply all these settings to create a professional edit. Output valid FCPXML only
                 </TabsList>
                 {renderToolContent()}
               </Tabs>
+
+              {/* Workflow Progress - Below main content on tablet */}
+              <div className="mt-4">
+                <VisualWorkflowIndicator {...workflowIndicatorProps} orientation="horizontal" />
+              </div>
             </div>
           </div>
 
@@ -1092,7 +1091,6 @@ Apply all these settings to create a professional edit. Output valid FCPXML only
             <div className="p-4 space-y-4">
               {renderSidePanel()}
             </div>
-          </div>
           </div>
         </main>
 
@@ -1158,14 +1156,7 @@ Apply all these settings to create a professional edit. Output valid FCPXML only
         />
       )}
 
-      {/* Workflow Progress Bar - Prominent fixed header area */}
-      <div className="px-6 py-3 bg-card/50 backdrop-blur-sm border-b border-border/30">
-        <div className="max-w-5xl mx-auto">
-          <VisualWorkflowIndicator {...workflowIndicatorProps} />
-        </div>
-      </div>
-
-      <main className="h-[calc(100vh-56px-88px)] overflow-hidden">
+      <main className="h-[calc(100vh-56px)] overflow-hidden">
         <ResizablePanelGroup direction="vertical" className="h-full">
           {/* Top section - Source & Timeline Preview */}
           <ResizablePanel defaultSize={35} minSize={15} maxSize={70} className="overflow-hidden">
@@ -1273,8 +1264,12 @@ Apply all these settings to create a professional edit. Output valid FCPXML only
 
                 <ResizableHandle withHandle className="hover:bg-primary/10 transition-colors" />
 
-                {/* Right - Output */}
+                {/* Right - Output + Workflow */}
                 <ResizablePanel defaultSize={35} minSize={15} maxSize={50} className="overflow-auto pl-4">
+                  {/* Workflow Progress - Vertical sidebar on desktop */}
+                  <div className="mb-4">
+                    <VisualWorkflowIndicator {...workflowIndicatorProps} orientation="vertical" />
+                  </div>
                   {renderSidePanel()}
                 </ResizablePanel>
               </ResizablePanelGroup>

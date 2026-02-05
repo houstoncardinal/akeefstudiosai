@@ -1,6 +1,5 @@
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
-import { Progress } from '@/components/ui/progress';
 import {
   Upload,
   Palette,
@@ -8,7 +7,6 @@ import {
   Wand2,
   Download,
   CheckCircle,
-  ArrowRight,
 } from 'lucide-react';
 
 interface WorkflowStep {
@@ -25,6 +23,7 @@ interface VisualWorkflowIndicatorProps {
   hasEffects: boolean;
   isProcessing: boolean;
   hasOutput: boolean;
+  orientation?: 'horizontal' | 'vertical';
 }
 
 export default function VisualWorkflowIndicator({
@@ -33,6 +32,7 @@ export default function VisualWorkflowIndicator({
   hasEffects,
   isProcessing,
   hasOutput,
+  orientation = 'horizontal',
 }: VisualWorkflowIndicatorProps) {
   const steps: WorkflowStep[] = [
     {
@@ -73,78 +73,126 @@ export default function VisualWorkflowIndicator({
   ];
 
   const completedCount = steps.filter((s) => s.complete).length;
-  const progressPercent = (completedCount / steps.length) * 100;
 
-  return (
-    <div className="w-full bg-gradient-to-r from-card via-card/95 to-card border border-border/50 rounded-2xl shadow-lg backdrop-blur-sm">
-      <div className="px-4 py-3 sm:px-6 sm:py-4 lg:px-8 lg:py-5">
-        {/* Header - Mobile: stacked, Desktop: inline */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-4 mb-4 lg:mb-5">
-          <div className="flex items-center gap-2 sm:gap-3">
-            <div className="w-8 h-8 sm:w-9 sm:h-9 lg:w-10 lg:h-10 rounded-xl bg-gradient-to-br from-primary to-accent flex items-center justify-center shadow-md">
-              <Sparkles className="w-4 h-4 sm:w-5 sm:h-5 text-primary-foreground" />
-            </div>
-            <div>
-              <h3 className="text-sm sm:text-base lg:text-lg font-bold text-foreground">
-                Workflow Progress
-              </h3>
-              <p className="text-[10px] sm:text-xs text-muted-foreground hidden sm:block">
-                Complete each step to generate your edit
-              </p>
-            </div>
-          </div>
+  // Vertical layout for desktop sidebar
+  if (orientation === 'vertical') {
+    return (
+      <div className="bg-card/80 border border-border/50 rounded-xl p-3 backdrop-blur-sm">
+        <div className="flex items-center justify-between mb-3">
+          <span className="text-xs font-semibold text-foreground">Workflow</span>
           <Badge 
             variant={completedCount === steps.length ? "default" : "secondary"}
             className={cn(
-              "text-xs sm:text-sm px-2.5 py-1 sm:px-3 sm:py-1.5 font-semibold self-start sm:self-auto",
+              "text-[10px] px-1.5 py-0.5",
               completedCount === steps.length && "bg-success text-success-foreground"
             )}
           >
-            {completedCount}/{steps.length} Complete
+            {completedCount}/{steps.length}
           </Badge>
         </div>
 
-        {/* Progress Bar */}
-        <div className="mb-4 lg:mb-6">
-          <Progress 
-            value={progressPercent} 
-            className="h-2 sm:h-2.5 lg:h-3 bg-muted/50"
-          />
+        <div className="space-y-1">
+          {steps.map((step, index) => {
+            const Icon = step.icon;
+            const isLast = index === steps.length - 1;
+
+            return (
+              <div key={step.id} className="flex items-center gap-2">
+                {/* Step icon */}
+                <div
+                  className={cn(
+                    'w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 transition-all',
+                    step.complete
+                      ? 'bg-success/15 text-success'
+                      : step.active
+                      ? 'bg-primary/15 text-primary animate-pulse'
+                      : 'bg-muted/30 text-muted-foreground'
+                  )}
+                >
+                  {step.complete ? (
+                    <CheckCircle className="w-3.5 h-3.5" />
+                  ) : (
+                    <Icon className="w-3.5 h-3.5" />
+                  )}
+                </div>
+
+                {/* Step label */}
+                <span
+                  className={cn(
+                    'text-[11px] font-medium flex-1 transition-colors',
+                    step.complete
+                      ? 'text-success'
+                      : step.active
+                      ? 'text-primary font-semibold'
+                      : 'text-muted-foreground'
+                  )}
+                >
+                  {step.label}
+                </span>
+
+                {/* Connector line (vertical) */}
+                {!isLast && (
+                  <div className="absolute left-[16px] mt-7 w-0.5 h-1 bg-border/30" />
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
+
+  // Horizontal layout (mobile/tablet)
+  return (
+    <div className="bg-card/80 border border-border/50 rounded-xl px-3 py-2.5 backdrop-blur-sm">
+      <div className="flex items-center gap-3">
+        {/* Progress label */}
+        <div className="flex items-center gap-1.5 flex-shrink-0">
+          <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Progress</span>
+          <Badge 
+            variant={completedCount === steps.length ? "default" : "secondary"}
+            className={cn(
+              "text-[10px] px-1.5 py-0",
+              completedCount === steps.length && "bg-success text-success-foreground"
+            )}
+          >
+            {completedCount}/{steps.length}
+          </Badge>
         </div>
 
-        {/* Steps - Responsive Grid */}
-        <div className="flex items-center justify-between gap-1 sm:gap-2 lg:gap-4">
+        {/* Steps row */}
+        <div className="flex-1 flex items-center justify-between gap-1">
           {steps.map((step, index) => {
             const Icon = step.icon;
             const isLast = index === steps.length - 1;
 
             return (
               <div key={step.id} className="flex items-center flex-1 last:flex-none">
-                {/* Step Circle + Label */}
+                {/* Step circle */}
                 <div className="flex flex-col items-center">
                   <div
                     className={cn(
-                      'w-10 h-10 sm:w-12 sm:h-12 lg:w-14 lg:h-14 rounded-xl sm:rounded-2xl flex items-center justify-center border-2 transition-all duration-300',
+                      'w-7 h-7 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center transition-all',
                       step.complete
-                        ? 'bg-success/15 border-success text-success shadow-sm shadow-success/20'
+                        ? 'bg-success/15 text-success'
                         : step.active
-                        ? 'bg-primary/15 border-primary text-primary shadow-md shadow-primary/30 animate-pulse'
-                        : 'bg-muted/30 border-border/50 text-muted-foreground'
+                        ? 'bg-primary/15 text-primary animate-pulse'
+                        : 'bg-muted/30 text-muted-foreground'
                     )}
                   >
                     {step.complete ? (
-                      <CheckCircle className="w-5 h-5 sm:w-6 sm:h-6 lg:w-7 lg:h-7" />
+                      <CheckCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                     ) : (
-                      <Icon className="w-5 h-5 sm:w-6 sm:h-6 lg:w-7 lg:h-7" />
+                      <Icon className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                     )}
                   </div>
                   <span
                     className={cn(
-                      'text-[10px] sm:text-xs lg:text-sm font-medium mt-1.5 sm:mt-2 transition-colors',
+                      'text-[8px] sm:text-[9px] font-medium mt-0.5 transition-colors',
                       step.complete
                         ? 'text-success'
                         : step.active
-                        ? 'text-primary font-semibold'
+                        ? 'text-primary'
                         : 'text-muted-foreground'
                     )}
                   >
@@ -152,17 +200,17 @@ export default function VisualWorkflowIndicator({
                   </span>
                 </div>
 
-                {/* Connector Line */}
+                {/* Connector line */}
                 {!isLast && (
-                  <div className="flex-1 flex items-center justify-center px-1 sm:px-2 -mt-5 sm:-mt-6">
+                  <div className="flex-1 flex items-center justify-center px-0.5 -mt-4">
                     <div
                       className={cn(
-                        'h-0.5 sm:h-1 w-full rounded-full transition-all duration-500',
+                        'h-0.5 w-full rounded-full transition-all',
                         steps[index + 1]?.complete
                           ? 'bg-success'
                           : steps[index + 1]?.active
                           ? 'bg-gradient-to-r from-success to-primary'
-                          : 'bg-border/50'
+                          : 'bg-border/40'
                       )}
                     />
                   </div>
