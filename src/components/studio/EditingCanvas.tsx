@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
+import { useState, useMemo, useCallback, useRef, useEffect, memo } from 'react';
 import { cn } from '@/lib/utils';
 import {
   Film,
@@ -34,13 +34,7 @@ import {
   Magnet,
   GitBranch,
   Flag,
-  ChevronLeft,
-  ChevronRight,
-  Maximize2,
-  Minimize2,
   Activity,
-  Target,
-  Radio,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -53,11 +47,9 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger 
 } from '@/components/ui/dropdown-menu';
-import { Slider } from '@/components/ui/slider';
-import { Switch } from '@/components/ui/switch';
 import { type VideoFormat } from '@/lib/formats';
 import { type AudioAnalysisResult } from '@/lib/audioAnalysis';
-import { type VideoAnalysisResult, type SceneChange } from '@/lib/videoAnalysis';
+import { type VideoAnalysisResult } from '@/lib/videoAnalysis';
 
 // ═══════════════════════════════════════════════════════════════════
 // PROFESSIONAL TIMELINE TYPES
@@ -164,7 +156,6 @@ export default function EditingCanvas({
   const [showWaveforms, setShowWaveforms] = useState(true);
   const [showMarkers, setShowMarkers] = useState(true);
   const [showBeatGrid, setShowBeatGrid] = useState(true);
-  const [videoThumbnailUrl, setVideoThumbnailUrl] = useState<string | null>(null);
   
   const [tracks, setTracks] = useState<TimelineTrack[]>([
     { id: 'v1', name: 'Video 1', type: 'video', locked: false, visible: true, muted: false, height: 80, collapsed: false, solo: false },
@@ -175,21 +166,48 @@ export default function EditingCanvas({
   
   const timelineRef = useRef<HTMLDivElement>(null);
   
-  // ─── Generate video thumbnail from file ───
+  // ─── Generate static video thumbnail from file (once) ───
+  const [videoThumbnail, setVideoThumbnail] = useState<string | null>(null);
+  
   useEffect(() => {
-    if (!file) {
-      setVideoThumbnailUrl(null);
+    if (!file || !file.type.startsWith('video/')) {
+      setVideoThumbnail(null);
       return;
     }
     
-    // Check if it's a video file
-    if (file.type.startsWith('video/')) {
-      const url = URL.createObjectURL(file);
-      setVideoThumbnailUrl(url);
-      return () => URL.revokeObjectURL(url);
-    }
+    // Create a video element to capture a frame
+    const video = document.createElement('video');
+    const url = URL.createObjectURL(file);
+    video.src = url;
+    video.muted = true;
+    video.preload = 'metadata';
     
-    return undefined;
+    const captureFrame = () => {
+      // Seek to 1 second for thumbnail
+      video.currentTime = 1;
+    };
+    
+    const drawFrame = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = 160;
+      canvas.height = 90;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        setVideoThumbnail(canvas.toDataURL('image/jpeg', 0.7));
+      }
+      URL.revokeObjectURL(url);
+      video.remove();
+    };
+    
+    video.addEventListener('loadedmetadata', captureFrame);
+    video.addEventListener('seeked', drawFrame);
+    video.load();
+    
+    return () => {
+      URL.revokeObjectURL(url);
+      video.remove();
+    };
   }, [file]);
   
   // ─── Derived values from real analysis ───
@@ -303,12 +321,16 @@ export default function EditingCanvas({
         });
       });
     } else {
-      // Fallback: create placeholder clips if no analysis
-      const placeholderClips = ['Opening', 'Main Content', 'B-Roll', 'Interview', 'Closing'];
+      // Fallback: create placeholder clips if no analysis - use DETERMINISTIC values
+      const placeholderClips = [
+        { name: 'Opening', duration: 18 },
+        { name: 'Main Content', duration: 22 },
+        { name: 'B-Roll', duration: 15 },
+        { name: 'Interview', duration: 25 },
+        { name: 'Closing', duration: 12 },
+      ];
       let pos = 0;
-      placeholderClips.forEach((name, i) => {
-        const dur = 15 + Math.random() * 10;
-        
+      placeholderClips.forEach((clip, i) => {
         const clipEffects: ClipEffect[] = [];
         if (colorGrade && colorGrade !== 'none') {
           clipEffects.push({
@@ -322,11 +344,11 @@ export default function EditingCanvas({
         
         baseClips.push({
           id: `clip-v1-${i}`,
-          name,
+          name: clip.name,
           start: pos,
-          duration: dur,
+          duration: clip.duration,
           inPoint: 0,
-          outPoint: dur,
+          outPoint: clip.duration,
           track: 0,
           type: 'video',
           effects: clipEffects,
@@ -336,7 +358,7 @@ export default function EditingCanvas({
           speed: 1,
           volume: 1,
         });
-        pos += dur + 0.5;
+        pos += clip.duration + 0.5;
       });
     }
     
@@ -368,10 +390,11 @@ export default function EditingCanvas({
       });
     }
     
-    // Add audio track with real waveform data
+    // Add audio track with stable waveform data
     const audioWaveform = energyCurve.length > 0 
       ? energyCurve 
-      : Array.from({ length: 50 }, () => 0.2 + Math.random() * 0.8);
+      : [0.3, 0.5, 0.7, 0.4, 0.8, 0.6, 0.9, 0.5, 0.7, 0.4, 0.6, 0.8, 0.5, 0.7, 0.3, 0.6, 0.8, 0.4, 0.9, 0.5,
+         0.4, 0.6, 0.7, 0.5, 0.8, 0.6, 0.4, 0.7, 0.9, 0.5, 0.6, 0.8, 0.4, 0.7, 0.5, 0.9, 0.6, 0.4, 0.8, 0.5];
     
     baseClips.push({
       id: 'clip-a1-1',
@@ -868,27 +891,25 @@ export default function EditingCanvas({
                         onClick={(e) => handleClipClick(clip.id, e)}
                       >
                         {/* Video thumbnail background for video clips */}
-                        {clip.type === 'video' && videoThumbnailUrl && !track.collapsed && (
+                        {clip.type === 'video' && videoThumbnail && !track.collapsed && (
                           <div className="absolute inset-0 overflow-hidden">
-                            <video
-                              src={videoThumbnailUrl}
-                              className="w-full h-full object-cover opacity-40"
-                              muted
-                              playsInline
-                              preload="metadata"
+                            <img
+                              src={videoThumbnail}
+                              alt=""
+                              className="w-full h-full object-cover opacity-50"
                             />
-                            <div className="absolute inset-0 bg-gradient-to-b from-primary/30 to-primary/60" />
+                            <div className="absolute inset-0 bg-gradient-to-b from-primary/20 to-primary/40" />
                           </div>
                         )}
                         
                         {/* Fallback gradient for clips without thumbnail */}
-                        {(clip.type !== 'video' || !videoThumbnailUrl || track.collapsed) && (
+                        {(clip.type !== 'video' || !videoThumbnail || track.collapsed) && (
                           <div className={cn(
                             "absolute inset-0",
-                            clip.type === 'video' && 'bg-gradient-to-b from-primary/20 to-primary/10',
-                            clip.type === 'audio' && 'bg-gradient-to-b from-green-500/20 to-green-500/10',
-                            clip.type === 'title' && 'bg-gradient-to-b from-pink-500/20 to-pink-500/10',
-                            clip.type === 'image' && 'bg-gradient-to-b from-accent/20 to-accent/10',
+                            clip.type === 'video' && 'bg-gradient-to-b from-primary/25 to-primary/15',
+                            clip.type === 'audio' && 'bg-gradient-to-b from-green-500/25 to-green-500/15',
+                            clip.type === 'title' && 'bg-gradient-to-b from-pink-500/25 to-pink-500/15',
+                            clip.type === 'image' && 'bg-gradient-to-b from-accent/25 to-accent/15',
                           )} />
                         )}
                         
