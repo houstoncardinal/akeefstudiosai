@@ -1,4 +1,4 @@
-import { Sparkles, Cpu, Zap, Activity, Crown, Hexagon, Menu, X } from 'lucide-react';
+import { Sparkles, Cpu, Zap, Activity, Crown, Hexagon, Menu, X, Keyboard } from 'lucide-react';
 import { useState } from 'react';
 import ThemeSelector from './ThemeSelector';
 import { Badge } from '@/components/ui/badge';
@@ -59,6 +59,20 @@ export default function Header() {
               <span className="text-muted-foreground text-[10px]">v4.2</span>
             </div>
           </div>
+          
+          {/* Keyboard shortcuts hint - desktop only */}
+          <Button
+            variant="ghost"
+            size="sm"
+            className="hidden lg:flex h-8 gap-1.5 text-xs text-muted-foreground hover:text-foreground"
+            onClick={() => {
+              const event = new KeyboardEvent('keydown', { key: '?', shiftKey: true });
+              window.dispatchEvent(event);
+            }}
+          >
+            <Keyboard className="w-3.5 h-3.5" />
+            <span className="text-[10px]">⇧?</span>
+          </Button>
 
           <ThemeSelector />
 
