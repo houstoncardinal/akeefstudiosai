@@ -299,11 +299,13 @@ ${config.formatTools.length > 0 ? config.formatTools.join(', ') : 'Standard proc
    const canGenerate = file && fileContent && !isProcessing;
    const showOutput = processingState === 'completed' && currentJob && outputXml;
  
-   return (
-    <div className="min-h-screen bg-background cyber-grid">
+  const canGenerateNow = file && !isProcessing;
+
+  return (
+   <div className="min-h-screen bg-background">
        <Header />
        
-       <main className="h-[calc(100vh-56px)] flex flex-col overflow-hidden">
+      <main className="h-[calc(100vh-56px)] flex flex-col overflow-hidden">
         {/* Top section - Source & Timeline Preview */}
         <div className="flex-shrink-0 border-b border-border/30 bg-card/30 backdrop-blur-sm">
            <div className="container mx-auto px-4 py-4">
@@ -438,13 +440,13 @@ ${config.formatTools.length > 0 ? config.formatTools.join(', ') : 'Standard proc
                      </TabsContent>
  
                      <TabsContent value="export" className="m-0 h-full">
-                       <ExportPanel
-                         exportFormat={config.exportFormat}
-                         onExportFormatChange={(exportFormat) => updateConfig({ exportFormat })}
-                         onGenerate={handleGenerate}
-                         canGenerate={canGenerate}
-                         isProcessing={isProcessing}
-                         progress={progress}
+                        <ExportPanel
+                          exportFormat={config.exportFormat}
+                          onExportFormatChange={(exportFormat) => updateConfig({ exportFormat })}
+                          onGenerate={handleGenerate}
+                          canGenerate={canGenerateNow}
+                          isProcessing={isProcessing}
+                          progress={progress}
                          statusMessage={statusMessage}
                          processingState={processingState}
                        />

@@ -1,8 +1,9 @@
- import { EXPORT_FORMATS } from '@/lib/presets';
+import { EXPORT_FORMATS, type ExportFormat } from '@/lib/presets';
  import { Button } from '@/components/ui/button';
  import { Progress } from '@/components/ui/progress';
  import { cn } from '@/lib/utils';
- import { Download, Play, Loader2, CheckCircle, XCircle, FileOutput, Sparkles, Zap } from 'lucide-react';
+import { Download, Loader2, CheckCircle, XCircle, FileOutput, Sparkles, Zap, Film, FileVideo, Video } from 'lucide-react';
+import { ScrollArea } from '@/components/ui/scroll-area';
  
  interface ExportPanelProps {
    exportFormat: string;
@@ -16,40 +17,98 @@
  }
  
  export default function ExportPanel({ exportFormat, onExportFormatChange, onGenerate, canGenerate, isProcessing, progress, statusMessage, processingState }: ExportPanelProps) {
+  // Group formats by type
+  const videoFormats = EXPORT_FORMATS.filter(f => 
+    ['mp4_h264', 'mp4_hevc', 'mov_prores', 'mov_prores_4444', 'dnxhd', 'webm_vp9', 'avi_uncompressed'].includes(f.id)
+  );
+  const projectFormats = EXPORT_FORMATS.filter(f => 
+    ['fcpxml', 'premiere_xml', 'davinci_xml', 'edl', 'aaf'].includes(f.id)
+  );
+
+  const getFormatIcon = (format: ExportFormat) => {
+    if (format.codec === 'N/A') return FileOutput;
+    return FileVideo;
+  };
+
    return (
-    <div className="space-y-5">
+   <div className="space-y-4">
       {/* Export Format Selection */}
       <div className="panel relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-bl from-accent/5 to-transparent rounded-full blur-2xl" />
          <div className="panel-header">
           <div className="flex items-center gap-2">
             <FileOutput className="w-3.5 h-3.5 text-accent" />
-            <span className="panel-title">Export Format</span>
+           <span className="panel-title">Output Format</span>
           </div>
-          <span className="text-[9px] text-muted-foreground font-mono">NLE Compatible</span>
+         <span className="text-[9px] text-muted-foreground font-mono">Video & Project Files</span>
          </div>
-        <div className="p-4 grid grid-cols-2 sm:grid-cols-3 gap-3">
-           {EXPORT_FORMATS.map((format) => {
-             const active = exportFormat === format.id;
-             return (
-               <button
-                 key={format.id}
-                 onClick={() => onExportFormatChange(format.id)}
-                 disabled={isProcessing}
-                className={cn(
-                  'preset-card text-left p-4 flex flex-col gap-2',
-                  active && 'active'
-                )}
-               >
-                <div className="flex items-center justify-between">
-                  <p className={cn('text-xs font-semibold', active && 'text-primary')}>{format.name}</p>
-                  {active && <CheckCircle className="w-3.5 h-3.5 text-primary" />}
-                </div>
-                <p className="text-[10px] text-muted-foreground font-mono bg-muted/50 px-1.5 py-0.5 rounded w-fit">{format.extension}</p>
-               </button>
-             );
-           })}
+       <ScrollArea className="h-64">
+         <div className="p-4 space-y-4">
+           {/* Video Formats */}
+           <div>
+             <div className="flex items-center gap-2 mb-2">
+               <Video className="w-3.5 h-3.5 text-primary" />
+               <span className="text-[10px] font-semibold uppercase tracking-wider text-foreground">Video Formats</span>
+             </div>
+             <div className="grid grid-cols-2 gap-2">
+               {videoFormats.map((format) => {
+                 const active = exportFormat === format.id;
+                 const Icon = getFormatIcon(format);
+                 return (
+                   <button
+                     key={format.id}
+                     onClick={() => onExportFormatChange(format.id)}
+                     disabled={isProcessing}
+                     className={cn(
+                       'preset-card text-left p-3 flex flex-col gap-1.5',
+                       active && 'active'
+                     )}
+                   >
+                     <div className="flex items-center justify-between">
+                       <p className={cn('text-xs font-semibold', active && 'text-primary')}>{format.name}</p>
+                       {active && <CheckCircle className="w-3.5 h-3.5 text-primary" />}
+                     </div>
+                     <div className="flex items-center gap-2 flex-wrap">
+                       <span className="text-[9px] text-muted-foreground font-mono bg-muted/50 px-1.5 py-0.5 rounded">{format.extension}</span>
+                       <span className="text-[9px] text-muted-foreground">{format.resolution}</span>
+                     </div>
+                     <p className="text-[9px] text-muted-foreground">{format.codec} • {format.bitrate}</p>
+                   </button>
+                 );
+               })}
+             </div>
+           </div>
+
+           {/* Project Formats */}
+           <div>
+             <div className="flex items-center gap-2 mb-2">
+               <Film className="w-3.5 h-3.5 text-accent" />
+               <span className="text-[10px] font-semibold uppercase tracking-wider text-foreground">Project Files</span>
+             </div>
+             <div className="grid grid-cols-2 gap-2">
+               {projectFormats.map((format) => {
+                 const active = exportFormat === format.id;
+                 return (
+                   <button
+                     key={format.id}
+                     onClick={() => onExportFormatChange(format.id)}
+                     disabled={isProcessing}
+                     className={cn(
+                       'preset-card text-left p-3 flex flex-col gap-1',
+                       active && 'active'
+                     )}
+                   >
+                     <div className="flex items-center justify-between">
+                       <p className={cn('text-xs font-semibold', active && 'text-primary')}>{format.name}</p>
+                       {active && <CheckCircle className="w-3.5 h-3.5 text-primary" />}
+                     </div>
+                     <span className="text-[9px] text-muted-foreground font-mono bg-muted/50 px-1.5 py-0.5 rounded w-fit">{format.extension}</span>
+                   </button>
+                 );
+               })}
+             </div>
+           </div>
          </div>
+       </ScrollArea>
        </div>
  
       {/* Processing Status */}
