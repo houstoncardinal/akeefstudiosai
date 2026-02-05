@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -38,6 +38,9 @@ import FeedbackPanel from '@/components/studio/FeedbackPanel';
 import MultiVersionPanel from '@/components/studio/MultiVersionPanel';
 import CustomRulesEditorEnhanced from '@/components/studio/CustomRulesEditorEnhanced';
 import PanelWrapper from '@/components/studio/PanelWrapper';
+import KeyboardShortcutsOverlay from '@/components/studio/KeyboardShortcutsOverlay';
+import DraftRecoveryBanner from '@/components/studio/DraftRecoveryBanner';
+import ToolSectionTabs from '@/components/studio/ToolSectionTabs';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/components/ui/resizable';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -58,10 +61,13 @@ import {
   ChevronUp,
   Video,
   FileCode,
-  FolderOpen
+  FolderOpen,
+  Keyboard
 } from 'lucide-react';
 import { useUndoRedo } from '@/hooks/useUndoRedo';
 import { useLiveLUTThumbnails } from '@/hooks/useLiveLUTThumbnails';
+import { useKeyboardShortcuts, type ShortcutAction } from '@/hooks/useKeyboardShortcuts';
+import { useAutoSave } from '@/hooks/useAutoSave';
 import { DEFAULT_COLOR_SETTINGS, type FullColorSettings } from '@/hooks/useWebGLRenderer';
 import { useDeviceType } from '@/hooks/use-mobile';
 import { useExportHistory } from '@/hooks/useExportHistory';
@@ -122,6 +128,21 @@ const toolSections = [
   { id: 'exports', label: 'Exports', icon: <FolderOpen className="w-4 h-4" /> },
 ];
 
+const toolIcons: Record<string, React.ReactNode> = {
+  style: <Wand2 className="w-3.5 h-3.5" />,
+  color: <Palette className="w-3.5 h-3.5" />,
+  effects: <Zap className="w-3.5 h-3.5" />,
+  graphics: <Type className="w-3.5 h-3.5" />,
+  versions: <Layers className="w-3.5 h-3.5" />,
+  tools: <Wrench className="w-3.5 h-3.5" />,
+  transitions: <ArrowRightLeft className="w-3.5 h-3.5" />,
+  shots: <Eye className="w-3.5 h-3.5" />,
+  beats: <Music className="w-3.5 h-3.5" />,
+  intent: <Compass className="w-3.5 h-3.5" />,
+  export: <Sparkles className="w-3.5 h-3.5" />,
+  exports: <FolderOpen className="w-3.5 h-3.5" />,
+};
+
 export default function Index() {
   const { toast } = useToast();
   const device = useDeviceType();
@@ -179,6 +200,48 @@ export default function Index() {
 
   // Mobile-specific: collapsible media section
   const [mediaCollapsed, setMediaCollapsed] = useState(false);
+  
+  // Playback state for shortcuts
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [playheadPosition, setPlayheadPosition] = useState(0);
+
+  // Auto-save functionality
+  const { 
+    showRecoveryBanner, 
+    draftInfo, 
+    restoreDraft, 
+    discardDraft, 
+    dismissBanner,
+    saveDraft 
+  } = useAutoSave({
+    enabled: true,
+    data: config,
+    fileName: file?.name,
+    onRestore: (restoredConfig) => setConfig(restoredConfig),
+  });
+
+  // Keyboard shortcuts
+  const shortcuts: ShortcutAction[] = useMemo(() => [
+    // Playback
+    { key: ' ', action: () => setIsPlaying(p => !p), description: 'Play / Pause', category: 'playback' },
+    { key: 'j', action: () => setPlayheadPosition(p => Math.max(0, p - 1)), description: 'Rewind', category: 'playback' },
+    { key: 'k', action: () => setIsPlaying(false), description: 'Stop', category: 'playback' },
+    { key: 'l', action: () => setPlayheadPosition(p => p + 1), description: 'Forward', category: 'playback' },
+    { key: 'Home', action: () => setPlayheadPosition(0), description: 'Go to start', category: 'playback' },
+    // Editing
+    { key: 's', action: () => { /* split clip */ }, description: 'Split clip at playhead', category: 'edit' },
+    { key: 'v', action: () => { /* select tool */ }, description: 'Selection tool', category: 'edit' },
+    { key: 'z', ctrl: true, action: () => undoColor(), description: 'Undo', category: 'edit' },
+    { key: 'z', ctrl: true, shift: true, action: () => redoColor(), description: 'Redo', category: 'edit' },
+    { key: 's', ctrl: true, action: () => saveDraft(), description: 'Save draft', category: 'edit' },
+    // View/Navigation
+    { key: '1', action: () => setActiveTab('style'), description: 'Style panel', category: 'navigation' },
+    { key: '2', action: () => setActiveTab('color'), description: 'Color panel', category: 'navigation' },
+    { key: '3', action: () => setActiveTab('effects'), description: 'Effects panel', category: 'navigation' },
+    { key: '4', action: () => setActiveTab('export'), description: 'Export panel', category: 'navigation' },
+  ], [undoColor, redoColor, saveDraft]);
+
+  // Keyboard shortcuts hook - see actual hook call below after isProcessing is defined
 
   // Parse file when uploaded
   useEffect(() => {
@@ -481,6 +544,12 @@ Apply all these settings to create a professional edit. Output valid FCPXML only
   const isProcessing = processingState === 'uploading' || processingState === 'processing';
   const canGenerate = !!file && !isProcessing;
   const showOutput = !!(processingState === 'completed' && currentJob && outputXml);
+
+  // Keyboard shortcuts hook - defined after isProcessing
+  const { showOverlay: showShortcutsOverlay, setShowOverlay: setShowShortcutsOverlay } = useKeyboardShortcuts({
+    enabled: !isProcessing,
+    shortcuts,
+  });
 
   // ── Shared panel content (used across all layouts) ──
   const renderToolContent = () => (
@@ -899,6 +968,25 @@ Apply all these settings to create a professional edit. Output valid FCPXML only
   return (
     <div className="min-h-screen bg-background">
       <Header />
+      
+      {/* Draft Recovery Banner */}
+      {showRecoveryBanner && draftInfo && (
+        <DraftRecoveryBanner
+          savedAt={draftInfo.savedAt}
+          fileName={draftInfo.fileName}
+          onRestore={restoreDraft}
+          onDiscard={discardDraft}
+          onDismiss={dismissBanner}
+        />
+      )}
+      
+      {/* Keyboard Shortcuts Overlay */}
+      {showShortcutsOverlay && (
+        <KeyboardShortcutsOverlay
+          shortcuts={shortcuts}
+          onClose={() => setShowShortcutsOverlay(false)}
+        />
+      )}
 
       <main className="h-[calc(100vh-56px)] overflow-hidden">
         <ResizablePanelGroup direction="vertical" className="h-full">
