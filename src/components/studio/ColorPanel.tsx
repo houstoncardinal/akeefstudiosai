@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { CINEMATIC_LUTS, type CinematicLUT } from '@/lib/presets';
 import { cn } from '@/lib/utils';
-import { CheckCircle, Film, Sparkles, Camera, Tv, Music, RotateCcw, Undo2, Redo2, HelpCircle } from 'lucide-react';
+import { CheckCircle, Film, Sparkles, Camera, Tv, Music, RotateCcw, Undo2, Redo2, HelpCircle, Upload, FolderOpen } from 'lucide-react';
 import { Slider } from '@/components/ui/slider';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
@@ -11,7 +11,7 @@ import { type FullColorSettings } from '@/lib/webgl/WebGLRenderer';
 import ColorWheel from '@/components/studio/ColorWheel';
 import InsightTooltip, { FEATURE_TOOLTIPS } from './InsightTooltip';
 import AutoShowTooltip from './AutoShowTooltip';
-
+import CustomLUTManager from './CustomLUTManager';
 // Legacy compatibility: alias old ColorSettings to the richer FullColorSettings
 export type ColorSettings = FullColorSettings;
 
@@ -234,6 +234,7 @@ export default function ColorPanel({
   };
 
   const categories = ['hollywood', 'film_stock', 'stylized', 'music_video', 'broadcast', 'documentary'] as const;
+  const [showCustomManager, setShowCustomManager] = useState(false);
 
   const renderLUTCard = (lut: CinematicLUT) => {
     const active = colorGrade === lut.id;
@@ -340,42 +341,61 @@ export default function ColorPanel({
               <HelpCircle className="w-3.5 h-3.5 text-muted-foreground hover:text-primary cursor-help transition-colors" />
             </AutoShowTooltip>
           </div>
-          <Badge variant="outline" className="text-[9px]">
-            {CINEMATIC_LUTS.length} Professional LUTs
-          </Badge>
+          <div className="flex items-center gap-2">
+            <Button
+              variant={showCustomManager ? "default" : "outline"}
+              size="sm"
+              className="h-7 text-[10px] gap-1.5"
+              onClick={() => setShowCustomManager(!showCustomManager)}
+            >
+              <FolderOpen className="w-3.5 h-3.5" />
+              My LUTs
+            </Button>
+            <Badge variant="outline" className="text-[9px]">
+              {CINEMATIC_LUTS.length} Professional LUTs
+            </Badge>
+          </div>
         </div>
 
-        <Tabs defaultValue="hollywood" className="w-full">
-          <div className="px-2 sm:px-3 pt-2 sm:pt-3 overflow-x-auto scrollbar-hide">
-            <TabsList className="w-full h-auto flex-wrap gap-1 bg-muted/30 p-1">
-              {categories.map(cat => {
-                const Icon = categoryIcons[cat];
-                const count = CINEMATIC_LUTS.filter(l => l.category === cat).length;
-                return (
-                  <TabsTrigger
-                    key={cat}
-                    value={cat}
-                    className="flex-1 min-w-[60px] sm:min-w-[80px] gap-1 text-[10px] px-1.5 sm:px-2 py-2 sm:py-1.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
-                  >
-                    <Icon className="w-3 h-3" />
-                    <span className="hidden sm:inline">{categoryLabels[cat]}</span>
-                    <span className="text-[8px] opacity-70">({count})</span>
-                  </TabsTrigger>
-                );
-              })}
-            </TabsList>
+        {showCustomManager ? (
+          <div className="h-[400px] border-t border-border/30">
+            <CustomLUTManager />
           </div>
+        ) : (
+          <>
+            <Tabs defaultValue="hollywood" className="w-full">
+              <div className="px-2 sm:px-3 pt-2 sm:pt-3 overflow-x-auto scrollbar-hide">
+                <TabsList className="w-full h-auto flex-wrap gap-1 bg-muted/30 p-1">
+                  {categories.map(cat => {
+                    const Icon = categoryIcons[cat];
+                    const count = CINEMATIC_LUTS.filter(l => l.category === cat).length;
+                    return (
+                      <TabsTrigger
+                        key={cat}
+                        value={cat}
+                        className="flex-1 min-w-[60px] sm:min-w-[80px] gap-1 text-[10px] px-1.5 sm:px-2 py-2 sm:py-1.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+                      >
+                        <Icon className="w-3 h-3" />
+                        <span className="hidden sm:inline">{categoryLabels[cat]}</span>
+                        <span className="text-[8px] opacity-70">({count})</span>
+                      </TabsTrigger>
+                    );
+                  })}
+                </TabsList>
+              </div>
 
-          <ScrollArea className="h-[280px] sm:h-[320px]">
-            {categories.map(cat => (
-              <TabsContent key={cat} value={cat} className="m-0 p-3">
-                <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
-                  {CINEMATIC_LUTS.filter(l => l.category === cat).map(renderLUTCard)}
-                </div>
-              </TabsContent>
-            ))}
-          </ScrollArea>
-        </Tabs>
+              <ScrollArea className="h-[280px] sm:h-[320px]">
+                {categories.map(cat => (
+                  <TabsContent key={cat} value={cat} className="m-0 p-3">
+                    <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
+                      {CINEMATIC_LUTS.filter(l => l.category === cat).map(renderLUTCard)}
+                    </div>
+                  </TabsContent>
+                ))}
+              </ScrollArea>
+            </Tabs>
+          </>
+        )}
       </div>
 
       {/* Selected LUT Settings */}
