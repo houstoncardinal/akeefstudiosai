@@ -42,6 +42,18 @@ interface ToolGroup {
 
 const toolGroups: ToolGroup[] = [
   {
+    id: 'ai',
+    label: 'AI Studio',
+    icon: <Sparkles className="w-3.5 h-3.5" />,
+    sections: [
+      { id: 'ai-vibe', label: 'AI Vibe Chat', icon: <Sparkles className="w-4 h-4" />, shortcut: '`' },
+      { id: 'tools', label: 'AI Tools', icon: <Wrench className="w-4 h-4" /> },
+      { id: 'shots', label: 'Shot Analysis', icon: <Eye className="w-4 h-4" /> },
+      { id: 'beats', label: 'Beat Engine', icon: <Music className="w-4 h-4" /> },
+      { id: 'intent', label: 'Director Intent', icon: <Compass className="w-4 h-4" /> },
+    ],
+  },
+  {
     id: 'creative',
     label: 'Creative',
     icon: <Palette className="w-3.5 h-3.5" />,
@@ -53,17 +65,6 @@ const toolGroups: ToolGroup[] = [
       { id: 'graphics', label: 'Graphics', icon: <Type className="w-4 h-4" /> },
       { id: 'transitions', label: 'Transitions', icon: <ArrowRightLeft className="w-4 h-4" /> },
       { id: 'transitions_lib', label: 'Trans Library', icon: <ArrowRightLeft className="w-4 h-4" /> },
-    ],
-  },
-  {
-    id: 'automation',
-    label: 'AI & Automation',
-    icon: <Wrench className="w-3.5 h-3.5" />,
-    sections: [
-      { id: 'tools', label: 'AI Tools', icon: <Wrench className="w-4 h-4" /> },
-      { id: 'shots', label: 'Shot Analysis', icon: <Eye className="w-4 h-4" /> },
-      { id: 'beats', label: 'Beat Engine', icon: <Music className="w-4 h-4" /> },
-      { id: 'intent', label: 'Director Intent', icon: <Compass className="w-4 h-4" /> },
     ],
   },
   {

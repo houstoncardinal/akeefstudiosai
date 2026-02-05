@@ -45,6 +45,7 @@ import WelcomeGuide from '@/components/studio/WelcomeGuide';
 import QuickExportBar from '@/components/studio/QuickExportBar';
 import VisualWorkflowIndicator from '@/components/studio/VisualWorkflowIndicator';
 import AIInsightsPanel from '@/components/studio/AIInsightsPanel';
+import AIVibeStudio from '@/components/studio/AIVibeStudio';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/components/ui/resizable';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -127,6 +128,7 @@ const getSessionId = () => {
 };
 
 const toolSections = [
+  { id: 'ai-vibe', label: 'AI Vibe', icon: <Sparkles className="w-4 h-4" /> },
   { id: 'style', label: 'Style', icon: <Wand2 className="w-4 h-4" /> },
   { id: 'color', label: 'Color', icon: <Palette className="w-4 h-4" /> },
   { id: 'effects', label: 'Effects', icon: <Zap className="w-4 h-4" /> },
@@ -145,6 +147,7 @@ const toolSections = [
 ];
 
 const toolIcons: Record<string, React.ReactNode> = {
+  'ai-vibe': <Sparkles className="w-3.5 h-3.5" />,
   style: <Wand2 className="w-3.5 h-3.5" />,
   color: <Palette className="w-3.5 h-3.5" />,
   effects: <Zap className="w-3.5 h-3.5" />,
@@ -251,7 +254,7 @@ export default function Index() {
   const [statusMessage, setStatusMessage] = useState('');
   const [currentJob, setCurrentJob] = useState<JobData | null>(null);
   const [outputXml, setOutputXml] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<string>('style');
+  const [activeTab, setActiveTab] = useState<string>('ai-vibe');
 
   // Track tab changes for user preferences
   const handleTabChange = useCallback((tab: string) => {
@@ -615,6 +618,17 @@ Apply all these settings to create a professional edit. Output valid FCPXML only
   // ── Shared panel content (used across all layouts) ──
   const renderToolContent = () => (
     <>
+      <TabsContent value="ai-vibe" className="m-0 h-full data-[state=active]:animate-fade-in">
+        <PanelWrapper title="AI Vibe Studio" icon={<Sparkles className="w-4 h-4" />}>
+          <AIVibeStudio
+            currentConfig={config}
+            onApplyConfig={(newConfig) => updateConfig(newConfig)}
+            file={file}
+            detectedBPM={detectedBPM}
+          />
+        </PanelWrapper>
+      </TabsContent>
+
       <TabsContent value="style" className="m-0 h-full data-[state=active]:animate-fade-in">
         <PanelWrapper title="Style" icon={<Wand2 className="w-4 h-4" />}>
           <StylePanel
