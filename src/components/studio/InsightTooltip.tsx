@@ -267,6 +267,19 @@ export const FEATURE_TOOLTIPS: Record<string, TooltipHint> = {
     tip: 'Works best with music that has a clear beat. BPM is auto-detected.',
     category: 'feature',
   },
+  'beat-analysis': {
+    id: 'beat-analysis',
+    title: 'Audio Analysis',
+    description: 'Our AI decodes your audio track to find transient peaks and energy shifts.',
+    tip: 'Run analysis once per project to unlock rhythmic editing features.',
+    category: 'workflow',
+  },
+  'energy-curve': {
+    id: 'energy-curve',
+    title: 'Visual Energy Curve',
+    description: 'See the dynamic intensity of your track. Higher bars mean higher energy/volume.',
+    category: 'pro-tip',
+  },
 
   // Director Intent
   'director-intent': {
@@ -274,6 +287,28 @@ export const FEATURE_TOOLTIPS: Record<string, TooltipHint> = {
     title: 'Director Intent',
     description: 'Guide the AI with creative direction. Choose a mood or describe your vision in natural language.',
     tip: 'Be specific: "Build tension slowly, then release at the chorus" works better than "make it exciting".',
+    category: 'pro-tip',
+  },
+  'ai-custom-intent': {
+    id: 'ai-custom-intent',
+    title: 'Custom AI Instructions',
+    description: 'Describe your vision in plain English. The AI will translate this into specific editing rules.',
+    tip: 'Mention lighting, pacing, or emotional tone for the best results.',
+    category: 'feature',
+  },
+
+  // Transitions
+  'transitions-sync': {
+    id: 'transitions-sync',
+    title: 'Rhythmic Transitions',
+    description: 'Toggle "Beat-Syncable Only" to see transitions that can perfectly align with your music.',
+    category: 'workflow',
+  },
+  'transition-params': {
+    id: 'transition-params',
+    title: 'Deep Customization',
+    description: 'Click "Edit Parameters" on any selected transition to fine-tune duration and specific effects.',
+    tip: 'Adjusting duration can drastically change the "feel" of a cut.',
     category: 'pro-tip',
   },
 

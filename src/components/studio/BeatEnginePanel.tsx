@@ -8,6 +8,7 @@ import { Switch } from '@/components/ui/switch';
 import { Slider } from '@/components/ui/slider';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Progress } from '@/components/ui/progress';
+import InsightTooltip, { FEATURE_TOOLTIPS } from './InsightTooltip';
 import {
   Music,
   Disc,
@@ -22,7 +23,8 @@ import {
   CheckCircle,
   Circle,
   Slash,
-  AlertCircle
+  AlertCircle,
+  HelpCircle
 } from 'lucide-react';
 
 interface BeatEnginePanelProps {
@@ -114,6 +116,9 @@ export default function BeatEnginePanel({
           <div className="flex items-center gap-2">
             <Music className="w-3.5 h-3.5 text-primary" />
             <span className="panel-title">Beat & Energy Engine</span>
+            <InsightTooltip hint={FEATURE_TOOLTIPS['beat-sync']} side="right">
+              <HelpCircle className="w-3 h-3 text-muted-foreground cursor-help" />
+            </InsightTooltip>
           </div>
           <Badge variant="outline" className="text-[9px] bg-primary/10 border-primary/30 text-primary">
             Web Audio API
@@ -127,8 +132,9 @@ export default function BeatEnginePanel({
           </p>
 
           {/* Analysis Button */}
-          <Button
-            onClick={handleStartAnalysis}
+          <InsightTooltip hint={FEATURE_TOOLTIPS['beat-analysis']} side="top">
+            <Button
+              onClick={handleStartAnalysis}
             disabled={disabled || isAnalyzing || !file}
             className="w-full h-12 gap-2 bg-gradient-to-r from-primary via-accent to-primary text-primary-foreground"
           >
@@ -149,6 +155,7 @@ export default function BeatEnginePanel({
               </>
             )}
           </Button>
+        </InsightTooltip>
 
           {/* Progress */}
           {isAnalyzing && (
@@ -207,6 +214,9 @@ export default function BeatEnginePanel({
           <div className="flex items-center gap-2 mb-3">
             <BarChart3 className="w-3.5 h-3.5 text-accent" />
             <span className="text-xs font-semibold">Energy Curve</span>
+            <InsightTooltip hint={FEATURE_TOOLTIPS['energy-curve']} side="top">
+              <HelpCircle className="w-3 h-3 text-muted-foreground cursor-help" />
+            </InsightTooltip>
             <Badge variant="outline" className="text-[8px] ml-auto">
               {energyCurve.length} segments
             </Badge>

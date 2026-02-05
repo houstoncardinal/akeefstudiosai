@@ -21,6 +21,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
+import InsightTooltip, { FEATURE_TOOLTIPS } from './InsightTooltip';
 import { 
   Scissors, 
   Blend, 
@@ -39,7 +40,8 @@ import {
   Check,
   ChevronDown,
   Wand2,
-  Grid3X3
+  Grid3X3,
+  HelpCircle
 } from 'lucide-react';
 
 interface TransitionsPanelProps {
@@ -166,6 +168,9 @@ export default function TransitionsPanel({
           <div className="flex items-center gap-2">
             <ArrowRightLeft className="w-3.5 h-3.5 text-accent" />
             <span className="panel-title">Transitions Library</span>
+            <InsightTooltip hint={FEATURE_TOOLTIPS['transitions-sync']} side="right">
+              <HelpCircle className="w-3 h-3 text-muted-foreground cursor-help" />
+            </InsightTooltip>
           </div>
           <Badge variant="outline" className="text-[9px]">
             {selectedTransitions.length} selected
@@ -294,8 +299,9 @@ export default function TransitionsPanel({
                     {isSelected && (
                       <Dialog>
                         <DialogTrigger asChild>
-                          <Button
-                            variant="ghost"
+                          <InsightTooltip hint={FEATURE_TOOLTIPS['transition-params']} side="top">
+                            <Button
+                              variant="ghost"
                             size="sm"
                             className="w-full mt-2 h-7 text-[10px] gap-1 opacity-0 group-hover:opacity-100 transition-opacity"
                             onClick={(e) => {
@@ -304,8 +310,9 @@ export default function TransitionsPanel({
                             }}
                           >
                             <Settings2 className="w-3 h-3" />
-                            Edit Parameters
-                          </Button>
+                              Edit Parameters
+                            </Button>
+                          </InsightTooltip>
                         </DialogTrigger>
                         <DialogContent className="sm:max-w-md">
                           <DialogHeader>
