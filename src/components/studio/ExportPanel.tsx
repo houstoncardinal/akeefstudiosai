@@ -5,6 +5,7 @@ import { cn } from '@/lib/utils';
 import { Download, Loader2, CheckCircle, XCircle, FileOutput, Sparkles, Zap, Film, FileVideo, Video, HelpCircle } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import InsightTooltip, { FEATURE_TOOLTIPS } from './InsightTooltip';
+import AutoShowTooltip from './AutoShowTooltip';
  
  interface ExportPanelProps {
    exportFormat: string;
@@ -168,7 +169,14 @@ import InsightTooltip, { FEATURE_TOOLTIPS } from './InsightTooltip';
        )}
  
       {/* Generate Button */}
-      <InsightTooltip hint={FEATURE_TOOLTIPS['export-generate']} side="top" disabled={isProcessing}>
+      <AutoShowTooltip 
+        hint={FEATURE_TOOLTIPS['export-generate']} 
+        side="top" 
+        priority={3}
+        showDelay={5500}
+        hideDelay={7000}
+        disabled={isProcessing}
+      >
         <button
           onClick={onGenerate}
           disabled={!canGenerate}
@@ -200,7 +208,7 @@ import InsightTooltip, { FEATURE_TOOLTIPS } from './InsightTooltip';
             </>
           )}
         </button>
-      </InsightTooltip>
+      </AutoShowTooltip>
       
       {/* Hint text */}
       {!canGenerate && !isProcessing && (
