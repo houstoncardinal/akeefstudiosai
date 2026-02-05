@@ -81,7 +81,7 @@ interface TimelineClip {
   track: number;
   type: 'video' | 'audio' | 'title' | 'image';
   effects: ClipEffect[];
-  thumbnail?: string;
+  thumbnailUrl?: string;
   locked: boolean;
   muted: boolean;
   visible: boolean;
@@ -164,6 +164,7 @@ export default function EditingCanvas({
   const [showWaveforms, setShowWaveforms] = useState(true);
   const [showMarkers, setShowMarkers] = useState(true);
   const [showBeatGrid, setShowBeatGrid] = useState(true);
+  const [videoThumbnailUrl, setVideoThumbnailUrl] = useState<string | null>(null);
   
   const [tracks, setTracks] = useState<TimelineTrack[]>([
     { id: 'v1', name: 'Video 1', type: 'video', locked: false, visible: true, muted: false, height: 80, collapsed: false, solo: false },
@@ -173,6 +174,23 @@ export default function EditingCanvas({
   ]);
   
   const timelineRef = useRef<HTMLDivElement>(null);
+  
+  // ─── Generate video thumbnail from file ───
+  useEffect(() => {
+    if (!file) {
+      setVideoThumbnailUrl(null);
+      return;
+    }
+    
+    // Check if it's a video file
+    if (file.type.startsWith('video/')) {
+      const url = URL.createObjectURL(file);
+      setVideoThumbnailUrl(url);
+      return () => URL.revokeObjectURL(url);
+    }
+    
+    return undefined;
+  }, [file]);
   
   // ─── Derived values from real analysis ───
   const totalDuration = useMemo(() => {
@@ -461,8 +479,14 @@ export default function EditingCanvas({
     return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}:${String(frames).padStart(2, '0')}`;
   };
   
-  const getClipWidth = (duration: number) => (duration / totalDuration) * 100 * (zoom / 100);
-  const getClipLeft = (start: number) => (start / totalDuration) * 100 * (zoom / 100);
+  // Stable clip positioning - memoized to prevent layout thrashing
+  const getClipWidth = useCallback((duration: number) => {
+    return (duration / totalDuration) * 100;
+  }, [totalDuration]);
+  
+  const getClipLeft = useCallback((start: number) => {
+    return (start / totalDuration) * 100;
+  }, [totalDuration]);
   
   // ─── Empty state ───
   if (!file) {
@@ -686,31 +710,27 @@ export default function EditingCanvas({
         <div className="w-[140px] flex-shrink-0 px-2 text-[9px] text-muted-foreground">
           {detectedBPM && <span className="font-mono">{detectedBPM} BPM</span>}
         </div>
-        <div className="flex-1 relative overflow-hidden">
+        <div className="flex-1 relative overflow-hidden" onClick={handleTimelineClick}>
           <div 
-            className="flex h-full relative"
-            style={{ width: `${zoom}%` }}
-            onClick={handleTimelineClick}
+            className="flex h-full relative transition-none"
+            style={{ width: `${zoom}%`, minWidth: '100%' }}
           >
-            {/* Time markers */}
+            {/* Time markers - static, no animation */}
             {Array.from({ length: Math.ceil(totalDuration / 10) + 1 }).map((_, i) => (
               <div key={i} className="flex-1 relative h-full border-r border-border/30">
-                <span className="absolute top-1 left-1 text-[8px] font-mono text-muted-foreground">
+                <span className="absolute top-1 left-1 text-[8px] font-mono text-muted-foreground select-none">
                   {formatTimecode(i * 10)}
                 </span>
-                {Array.from({ length: 4 }).map((_, j) => (
-                  <div key={j} className="absolute bottom-0 w-px h-1.5 bg-border/40" style={{ left: `${(j + 1) * 20}%` }} />
-                ))}
               </div>
             ))}
             
-            {/* Beat grid lines */}
-            {showBeatGrid && beatTimestamps.slice(0, 200).map((time, i) => (
+            {/* Beat grid lines - only render if enabled and have data */}
+            {showBeatGrid && beatTimestamps.length > 0 && beatTimestamps.slice(0, 100).map((time, i) => (
               <div
                 key={`beat-${i}`}
                 className={cn(
                   "absolute top-0 h-full w-px pointer-events-none",
-                  i % 4 === 0 ? "bg-primary/30" : "bg-primary/10"
+                  i % 4 === 0 ? "bg-primary/25" : "bg-primary/10"
                 )}
                 style={{ left: `${(time / totalDuration) * 100}%` }}
               />
@@ -718,23 +738,19 @@ export default function EditingCanvas({
             
             {/* Scene markers */}
             {showMarkers && markers.filter(m => m.type === 'scene').map((marker) => (
-              <Tooltip key={marker.id}>
-                <TooltipTrigger asChild>
-                  <div
-                    className="absolute top-0 h-full w-1 cursor-pointer hover:w-1.5 transition-all"
-                    style={{ 
-                      left: `${(marker.time / totalDuration) * 100}%`,
-                      backgroundColor: marker.color,
-                    }}
-                  />
-                </TooltipTrigger>
-                <TooltipContent>{marker.label}</TooltipContent>
-              </Tooltip>
+              <div
+                key={marker.id}
+                className="absolute top-0 h-full w-0.5 pointer-events-none"
+                style={{ 
+                  left: `${(marker.time / totalDuration) * 100}%`,
+                  backgroundColor: marker.color,
+                }}
+              />
             ))}
             
-            {/* Playhead */}
+            {/* Playhead - stable positioning */}
             <div
-              className="absolute top-0 h-full w-0.5 bg-primary z-30"
+              className="absolute top-0 h-full w-0.5 bg-primary z-30 pointer-events-none"
               style={{ left: `${(playheadPosition / totalDuration) * 100}%` }}
             >
               <div className="absolute -top-0.5 -left-1.5 w-3 h-3 bg-primary rounded-sm" />
@@ -809,14 +825,14 @@ export default function EditingCanvas({
             ))}
           </div>
           
-          {/* Timeline content */}
+          {/* Timeline content - stable layout */}
           <div ref={timelineRef} className="flex-1 relative overflow-x-auto">
-            <div className="relative" style={{ width: `${zoom}%`, minWidth: '100%' }}>
+            <div className="relative transition-none" style={{ width: `${zoom}%`, minWidth: '100%' }}>
               {tracks.map((track, trackIndex) => (
                 <div
                   key={track.id}
                   className={cn(
-                    "relative border-b border-border/30 bg-gradient-to-b transition-all",
+                    "relative border-b border-border/30 bg-gradient-to-b",
                     track.type === 'video' && 'from-primary/5 to-transparent',
                     track.type === 'overlay' && 'from-accent/5 to-transparent',
                     track.type === 'audio' && 'from-green-500/5 to-transparent',
@@ -824,7 +840,7 @@ export default function EditingCanvas({
                     !track.visible && 'opacity-40'
                   )}
                 >
-                  {/* Clips */}
+                  {/* Clips - stable positioning without transition */}
                   {clips.filter(clip => clip.track === trackIndex).map(clip => {
                     const isSelected = selectedClips.includes(clip.id);
                     const clipWidth = getClipWidth(clip.duration);
@@ -834,41 +850,69 @@ export default function EditingCanvas({
                       <div
                         key={clip.id}
                         className={cn(
-                          "absolute top-1 bottom-1 rounded-md cursor-pointer transition-all group overflow-hidden",
-                          "border-2 shadow-sm hover:shadow-md",
-                          clip.type === 'video' && 'bg-gradient-to-b from-primary/20 to-primary/10 border-primary/40',
-                          clip.type === 'audio' && 'bg-gradient-to-b from-green-500/20 to-green-500/10 border-green-500/40',
-                          clip.type === 'title' && 'bg-gradient-to-b from-pink-500/20 to-pink-500/10 border-pink-500/40',
-                          clip.type === 'image' && 'bg-gradient-to-b from-accent/20 to-accent/10 border-accent/40',
-                          isSelected && 'ring-2 ring-primary ring-offset-1 ring-offset-background border-primary',
+                          "absolute top-1 bottom-1 rounded-md cursor-pointer group overflow-hidden",
+                          "border-2 shadow-sm hover:shadow-md hover:z-10",
+                          clip.type === 'video' && 'border-primary/50',
+                          clip.type === 'audio' && 'border-green-500/50',
+                          clip.type === 'title' && 'border-pink-500/50',
+                          clip.type === 'image' && 'border-accent/50',
+                          isSelected && 'ring-2 ring-primary ring-offset-1 ring-offset-background border-primary z-20',
                           clip.locked && 'opacity-60 cursor-not-allowed',
                           !clip.visible && 'opacity-30'
                         )}
-                        style={{ left: `${clipLeft}%`, width: `${clipWidth}%`, minWidth: '60px' }}
+                        style={{ 
+                          left: `${clipLeft}%`, 
+                          width: `${clipWidth}%`, 
+                          minWidth: '80px',
+                        }}
                         onClick={(e) => handleClipClick(clip.id, e)}
                       >
-                        {/* Clip header */}
-                        <div className="flex items-center gap-1 px-1.5 py-0.5 bg-black/10">
-                          <GripVertical className="w-2.5 h-2.5 text-foreground/40 opacity-0 group-hover:opacity-100 transition-opacity cursor-grab" />
-                          <span className="text-[9px] font-medium text-foreground/80 truncate flex-1">{clip.name}</span>
+                        {/* Video thumbnail background for video clips */}
+                        {clip.type === 'video' && videoThumbnailUrl && !track.collapsed && (
+                          <div className="absolute inset-0 overflow-hidden">
+                            <video
+                              src={videoThumbnailUrl}
+                              className="w-full h-full object-cover opacity-40"
+                              muted
+                              playsInline
+                              preload="metadata"
+                            />
+                            <div className="absolute inset-0 bg-gradient-to-b from-primary/30 to-primary/60" />
+                          </div>
+                        )}
+                        
+                        {/* Fallback gradient for clips without thumbnail */}
+                        {(clip.type !== 'video' || !videoThumbnailUrl || track.collapsed) && (
+                          <div className={cn(
+                            "absolute inset-0",
+                            clip.type === 'video' && 'bg-gradient-to-b from-primary/20 to-primary/10',
+                            clip.type === 'audio' && 'bg-gradient-to-b from-green-500/20 to-green-500/10',
+                            clip.type === 'title' && 'bg-gradient-to-b from-pink-500/20 to-pink-500/10',
+                            clip.type === 'image' && 'bg-gradient-to-b from-accent/20 to-accent/10',
+                          )} />
+                        )}
+                        
+                        {/* Clip header - positioned above background */}
+                        <div className="relative z-10 flex items-center gap-1 px-1.5 py-0.5 bg-black/20 backdrop-blur-sm">
+                          <GripVertical className="w-2.5 h-2.5 text-white/60 opacity-0 group-hover:opacity-100 cursor-grab flex-shrink-0" />
+                          <span className="text-[9px] font-medium text-white truncate flex-1 drop-shadow-sm">{clip.name}</span>
                           {clip.speed !== 1 && (
-                            <Badge variant="outline" className="text-[7px] px-1 py-0 h-3">{clip.speed}x</Badge>
+                            <Badge variant="outline" className="text-[7px] px-1 py-0 h-3 bg-black/30 text-white border-white/30">{clip.speed}x</Badge>
                           )}
-                          {clip.locked && <Lock className="w-2.5 h-2.5 text-warning" />}
-                          {clip.muted && <VolumeX className="w-2.5 h-2.5 text-destructive" />}
+                          {clip.locked && <Lock className="w-2.5 h-2.5 text-warning flex-shrink-0" />}
+                          {clip.muted && <VolumeX className="w-2.5 h-2.5 text-destructive flex-shrink-0" />}
                         </div>
                         
-                        {/* Effect badges */}
+                        {/* Effect badges - positioned above background */}
                         {!track.collapsed && clip.effects.length > 0 && (
-                          <div className="flex flex-wrap gap-0.5 px-1.5 py-1">
-                            {clip.effects.slice(0, 4).map((effect) => {
+                          <div className="relative z-10 flex flex-wrap gap-0.5 px-1.5 py-1">
+                            {clip.effects.slice(0, 3).map((effect) => {
                               const Icon = effect.icon;
                               return (
                                 <Tooltip key={effect.id}>
                                   <TooltipTrigger asChild>
-                                    <div className={cn("flex items-center gap-0.5 px-1 py-0.5 rounded text-[8px] font-medium", effect.color)}>
+                                    <div className={cn("flex items-center gap-0.5 px-1 py-0.5 rounded text-[8px] font-medium bg-black/30 backdrop-blur-sm", effect.color)}>
                                       <Icon className="w-2.5 h-2.5" />
-                                      <span className="hidden sm:inline truncate max-w-[60px]">{effect.name}</span>
                                     </div>
                                   </TooltipTrigger>
                                   <TooltipContent side="top" className="text-xs">
@@ -881,20 +925,20 @@ export default function EditingCanvas({
                                 </Tooltip>
                               );
                             })}
-                            {clip.effects.length > 4 && (
-                              <Badge variant="secondary" className="text-[8px] px-1 py-0 h-4">+{clip.effects.length - 4}</Badge>
+                            {clip.effects.length > 3 && (
+                              <Badge variant="secondary" className="text-[8px] px-1 py-0 h-4 bg-black/30 text-white">+{clip.effects.length - 3}</Badge>
                             )}
                           </div>
                         )}
                         
-                        {/* Real waveform visualization */}
+                        {/* Real waveform visualization - stable rendering */}
                         {clip.type === 'audio' && !track.collapsed && showWaveforms && clip.waveform && (
-                          <div className="absolute bottom-1 inset-x-1 h-4 flex items-end gap-px overflow-hidden">
-                            {clip.waveform.map((val, i) => (
+                          <div className="relative z-10 absolute bottom-1 inset-x-1 h-4 flex items-end gap-px overflow-hidden">
+                            {clip.waveform.slice(0, 40).map((val, i) => (
                               <div
                                 key={i}
-                                className="flex-1 bg-green-500/50 rounded-t transition-all"
-                                style={{ height: `${val * 100}%` }}
+                                className="flex-1 bg-green-400/60 rounded-t"
+                                style={{ height: `${Math.min(val * 100, 100)}%` }}
                               />
                             ))}
                           </div>
