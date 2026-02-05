@@ -94,20 +94,26 @@ const thumbnailMap: Record<string, string> = {
   'deep-ocean': deepOceanThumb,
 };
 
-const categoryIcons = {
+const categoryIcons: Record<string, typeof Film> = {
   hollywood: Film,
   film_stock: Camera,
   stylized: Sparkles,
   broadcast: Tv,
   music_video: Music,
+  documentary: Camera,
+  vintage: Film,
+  specialty: Sparkles,
 };
 
-const categoryLabels = {
+const categoryLabels: Record<string, string> = {
   hollywood: 'Hollywood',
   film_stock: 'Film Stock',
   stylized: 'Stylized',
   broadcast: 'Broadcast',
   music_video: 'Music Video',
+  documentary: 'Documentary',
+  vintage: 'Vintage',
+  specialty: 'Specialty',
 };
 
 export function getLUTDefaults(lut: CinematicLUT): FullColorSettings {
@@ -226,7 +232,7 @@ export default function ColorPanel({
     onColorSettingsChange?.(getLUTDefaults(selectedLUT));
   };
 
-  const categories = ['hollywood', 'film_stock', 'stylized', 'music_video', 'broadcast'] as const;
+  const categories = ['hollywood', 'film_stock', 'stylized', 'music_video', 'broadcast', 'documentary'] as const;
 
   const renderLUTCard = (lut: CinematicLUT) => {
     const active = colorGrade === lut.id;

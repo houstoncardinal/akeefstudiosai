@@ -48,6 +48,10 @@ import AIInsightsPanel from '@/components/studio/AIInsightsPanel';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/components/ui/resizable';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import AdvancedSettingsPanel from '@/components/studio/AdvancedSettingsPanel';
+import TransitionsLibraryPanel from '@/components/studio/TransitionsLibraryPanel';
+import MotionEffectsPanel from '@/components/studio/MotionEffectsPanel';
+import { type AdvancedSettings, DEFAULT_ADVANCED_SETTINGS } from '@/lib/advancedPresets';
 import {
   Palette,
   Sparkles,
@@ -66,7 +70,9 @@ import {
   Video,
   FileCode,
   FolderOpen,
-  Keyboard
+  Keyboard,
+  SlidersHorizontal,
+  Clapperboard
 } from 'lucide-react';
 import { useUndoRedo } from '@/hooks/useUndoRedo';
 import { useLiveLUTThumbnails } from '@/hooks/useLiveLUTThumbnails';
@@ -122,13 +128,16 @@ const toolSections = [
   { id: 'style', label: 'Style', icon: <Wand2 className="w-4 h-4" /> },
   { id: 'color', label: 'Color', icon: <Palette className="w-4 h-4" /> },
   { id: 'effects', label: 'Effects', icon: <Zap className="w-4 h-4" /> },
+  { id: 'motion', label: 'Motion', icon: <Clapperboard className="w-4 h-4" /> },
   { id: 'graphics', label: 'Graphics', icon: <Type className="w-4 h-4" /> },
   { id: 'versions', label: 'Versions', icon: <Layers className="w-4 h-4" /> },
   { id: 'tools', label: 'AI Tools', icon: <Wrench className="w-4 h-4" /> },
   { id: 'transitions', label: 'Transitions', icon: <ArrowRightLeft className="w-4 h-4" /> },
+  { id: 'transitions_lib', label: 'Trans Library', icon: <ArrowRightLeft className="w-4 h-4" /> },
   { id: 'shots', label: 'Shots', icon: <Eye className="w-4 h-4" /> },
   { id: 'beats', label: 'Beats', icon: <Music className="w-4 h-4" /> },
   { id: 'intent', label: 'Intent', icon: <Compass className="w-4 h-4" /> },
+  { id: 'advanced', label: 'Pro Settings', icon: <SlidersHorizontal className="w-4 h-4" /> },
   { id: 'export', label: 'Export', icon: <Sparkles className="w-4 h-4" /> },
   { id: 'exports', label: 'Exports', icon: <FolderOpen className="w-4 h-4" /> },
 ];
@@ -137,13 +146,16 @@ const toolIcons: Record<string, React.ReactNode> = {
   style: <Wand2 className="w-3.5 h-3.5" />,
   color: <Palette className="w-3.5 h-3.5" />,
   effects: <Zap className="w-3.5 h-3.5" />,
+  motion: <Clapperboard className="w-3.5 h-3.5" />,
   graphics: <Type className="w-3.5 h-3.5" />,
   versions: <Layers className="w-3.5 h-3.5" />,
   tools: <Wrench className="w-3.5 h-3.5" />,
   transitions: <ArrowRightLeft className="w-3.5 h-3.5" />,
+  transitions_lib: <ArrowRightLeft className="w-3.5 h-3.5" />,
   shots: <Eye className="w-3.5 h-3.5" />,
   beats: <Music className="w-3.5 h-3.5" />,
   intent: <Compass className="w-3.5 h-3.5" />,
+  advanced: <SlidersHorizontal className="w-3.5 h-3.5" />,
   export: <Sparkles className="w-3.5 h-3.5" />,
   exports: <FolderOpen className="w-3.5 h-3.5" />,
 };
@@ -211,6 +223,9 @@ export default function Index() {
     canRedo: canRedoColor,
   } = useUndoRedo<FullColorSettings | null>(DEFAULT_COLOR_SETTINGS);
   const [effectOverrides, setEffectOverrides] = useState<EffectOverrides | null>(null);
+  const [advancedSettings, setAdvancedSettings] = useState<AdvancedSettings>(DEFAULT_ADVANCED_SETTINGS);
+  const [selectedMotionEffects, setSelectedMotionEffects] = useState<string[]>([]);
+  const [selectedTransitionsLib, setSelectedTransitionsLib] = useState<string[]>([]);
   const previewVideoRef = useRef<HTMLVideoElement | null>(null);
   const lutThumbnails = useLiveLUTThumbnails(previewVideoRef, CINEMATIC_LUTS, { enabled: !!file });
 
@@ -628,6 +643,16 @@ Apply all these settings to create a professional edit. Output valid FCPXML only
         </PanelWrapper>
       </TabsContent>
 
+      <TabsContent value="motion" className="m-0 h-full data-[state=active]:animate-fade-in">
+        <PanelWrapper title="Motion Effects" icon={<Clapperboard className="w-4 h-4" />}>
+          <MotionEffectsPanel
+            selectedEffects={selectedMotionEffects}
+            onEffectsChange={setSelectedMotionEffects}
+            disabled={isProcessing}
+          />
+        </PanelWrapper>
+      </TabsContent>
+
       <TabsContent value="graphics" className="m-0 h-full data-[state=active]:animate-fade-in">
         <PanelWrapper title="Graphics" icon={<Type className="w-4 h-4" />}>
           <GraphicsPanel
@@ -670,6 +695,16 @@ Apply all these settings to create a professional edit. Output valid FCPXML only
         </PanelWrapper>
       </TabsContent>
 
+      <TabsContent value="transitions_lib" className="m-0 h-full data-[state=active]:animate-fade-in">
+        <PanelWrapper title="Transitions Library" icon={<ArrowRightLeft className="w-4 h-4" />}>
+          <TransitionsLibraryPanel
+            selectedTransitions={selectedTransitionsLib}
+            onTransitionsChange={setSelectedTransitionsLib}
+            disabled={isProcessing}
+          />
+        </PanelWrapper>
+      </TabsContent>
+
       <TabsContent value="shots" className="m-0 h-full data-[state=active]:animate-fade-in">
         <PanelWrapper title="Shots" icon={<Eye className="w-4 h-4" />}>
           <ShotIntelligencePanel
@@ -701,6 +736,16 @@ Apply all these settings to create a professional edit. Output valid FCPXML only
             customIntent={config.customIntent}
             onIntentChange={(directorIntent) => updateConfig({ directorIntent })}
             onCustomIntentChange={(customIntent) => updateConfig({ customIntent })}
+            disabled={isProcessing}
+          />
+        </PanelWrapper>
+      </TabsContent>
+
+      <TabsContent value="advanced" className="m-0 h-full data-[state=active]:animate-fade-in">
+        <PanelWrapper title="Pro Settings" icon={<SlidersHorizontal className="w-4 h-4" />}>
+          <AdvancedSettingsPanel
+            settings={advancedSettings}
+            onSettingsChange={setAdvancedSettings}
             disabled={isProcessing}
           />
         </PanelWrapper>
