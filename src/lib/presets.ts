@@ -303,6 +303,176 @@
  // COLOR GRADING PRESETS
  // ============================================
  
+export interface CinematicLUT {
+  id: string;
+  name: string;
+  description: string;
+  category: 'hollywood' | 'film_stock' | 'stylized' | 'broadcast' | 'music_video';
+  thumbnail: string;
+  lut: string;
+  settings: {
+    contrast: number;
+    saturation: number;
+    temperature: number;
+    tint: number;
+    shadows: number;
+    highlights: number;
+    lift: number;
+    gamma: number;
+    gain: number;
+  };
+  tags: string[];
+}
+
+export const CINEMATIC_LUTS: CinematicLUT[] = [
+  // Hollywood Blockbuster LUTs
+  {
+    id: 'teal_orange',
+    name: 'Teal & Orange',
+    description: 'The iconic Hollywood blockbuster look - used in Transformers, Mad Max, countless action films',
+    category: 'hollywood',
+    thumbnail: 'teal-orange',
+    lut: 'ARRI_TEAL_ORANGE_33',
+    settings: { contrast: 1.2, saturation: 0.95, temperature: -8, tint: 0, shadows: -12, highlights: 8, lift: -0.02, gamma: 1.0, gain: 1.05 },
+    tags: ['action', 'blockbuster', 'summer', 'warm'],
+  },
+  {
+    id: 'blockbuster_action',
+    name: 'Blockbuster Action',
+    description: 'High-contrast dramatic sky look - Michael Bay style action sequences',
+    category: 'hollywood',
+    thumbnail: 'blockbuster',
+    lut: 'HOLLYWOOD_BLOCKBUSTER_V2',
+    settings: { contrast: 1.35, saturation: 1.1, temperature: -5, tint: 0, shadows: -15, highlights: 12, lift: -0.03, gamma: 0.98, gain: 1.1 },
+    tags: ['action', 'dramatic', 'explosion', 'summer'],
+  },
+  {
+    id: 'thriller_cold',
+    name: 'Thriller Cold',
+    description: 'Desaturated cold blue tones - perfect for suspense and thriller films like Fincher movies',
+    category: 'hollywood',
+    thumbnail: 'thriller-cold',
+    lut: 'THRILLER_BLUE_STEEL',
+    settings: { contrast: 1.25, saturation: 0.7, temperature: -20, tint: -5, shadows: -18, highlights: 0, lift: 0.01, gamma: 0.95, gain: 0.98 },
+    tags: ['thriller', 'suspense', 'cold', 'dark'],
+  },
+  {
+    id: 'moody_desat',
+    name: 'Moody Desaturated',
+    description: 'Dark atmospheric low-saturation look - Game of Thrones, The Revenant style',
+    category: 'hollywood',
+    thumbnail: 'moody-desat',
+    lut: 'MOODY_DESAT_PRO',
+    settings: { contrast: 1.3, saturation: 0.55, temperature: -12, tint: 0, shadows: -20, highlights: -5, lift: 0.02, gamma: 0.92, gain: 0.95 },
+    tags: ['moody', 'dark', 'atmospheric', 'cinematic'],
+  },
+  // Film Stock Emulations
+  {
+    id: 'kodak_gold',
+    name: 'Kodak Gold 200',
+    description: 'Classic Kodak film warmth - nostalgic golden hour tones, legendary film stock',
+    category: 'film_stock',
+    thumbnail: 'kodak-gold',
+    lut: 'KODAK_GOLD_200_EMU',
+    settings: { contrast: 1.1, saturation: 1.05, temperature: 15, tint: 5, shadows: 5, highlights: -3, lift: 0.01, gamma: 1.02, gain: 1.02 },
+    tags: ['film', 'warm', 'nostalgic', 'golden'],
+  },
+  {
+    id: 'fuji_velvia',
+    name: 'Fuji Velvia 50',
+    description: 'Vivid greens and rich blues - legendary landscape film stock emulation',
+    category: 'film_stock',
+    thumbnail: 'fuji-velvia',
+    lut: 'FUJI_VELVIA_50_EMU',
+    settings: { contrast: 1.15, saturation: 1.25, temperature: -5, tint: -3, shadows: -5, highlights: 5, lift: -0.01, gamma: 1.0, gain: 1.05 },
+    tags: ['film', 'vivid', 'landscape', 'nature'],
+  },
+  {
+    id: 'vintage_film',
+    name: 'Vintage 35mm',
+    description: 'Warm sepia-toned analog film - classic 1970s cinema aesthetic',
+    category: 'film_stock',
+    thumbnail: 'vintage-film',
+    lut: 'VINTAGE_35MM_WARM',
+    settings: { contrast: 1.1, saturation: 0.85, temperature: 12, tint: 8, shadows: 8, highlights: -8, lift: 0.02, gamma: 1.03, gain: 0.98 },
+    tags: ['vintage', 'retro', 'warm', 'nostalgic'],
+  },
+  {
+    id: 'bw_classic',
+    name: 'Classic B&W',
+    description: 'High contrast black and white - timeless monochrome film noir style',
+    category: 'film_stock',
+    thumbnail: 'bw-classic',
+    lut: 'BW_CLASSIC_NOIR',
+    settings: { contrast: 1.4, saturation: 0.0, temperature: 0, tint: 0, shadows: -15, highlights: 10, lift: 0.0, gamma: 0.95, gain: 1.1 },
+    tags: ['bw', 'noir', 'classic', 'dramatic'],
+  },
+  // Stylized LUTs
+  {
+    id: 'neon_nights',
+    name: 'Neon Nights',
+    description: 'Cyberpunk purple and cyan - Blade Runner, neon city aesthetic',
+    category: 'stylized',
+    thumbnail: 'neon-nights',
+    lut: 'NEON_CYBERPUNK_V3',
+    settings: { contrast: 1.4, saturation: 1.3, temperature: -18, tint: 15, shadows: -25, highlights: 18, lift: -0.02, gamma: 0.9, gain: 1.15 },
+    tags: ['neon', 'cyberpunk', 'night', 'futuristic'],
+  },
+  {
+    id: 'scifi_green',
+    name: 'Sci-Fi Green',
+    description: 'Matrix-inspired green tint - digital technology aesthetic',
+    category: 'stylized',
+    thumbnail: 'scifi-green',
+    lut: 'SCIFI_GREEN_MATRIX',
+    settings: { contrast: 1.25, saturation: 0.9, temperature: -10, tint: -20, shadows: -15, highlights: 5, lift: 0.0, gamma: 0.95, gain: 1.05 },
+    tags: ['scifi', 'green', 'matrix', 'digital'],
+  },
+  {
+    id: 'golden_hour',
+    name: 'Golden Hour',
+    description: 'Warm amber sunset glow - romantic cinematic lighting',
+    category: 'stylized',
+    thumbnail: 'golden-hour',
+    lut: 'GOLDEN_HOUR_WARM',
+    settings: { contrast: 1.05, saturation: 1.1, temperature: 25, tint: 5, shadows: 0, highlights: -5, lift: 0.02, gamma: 1.05, gain: 1.0 },
+    tags: ['warm', 'golden', 'romantic', 'sunset'],
+  },
+  {
+    id: 'romance_soft',
+    name: 'Romance Soft',
+    description: 'Dreamy pastel pink tones - wedding and romantic film aesthetic',
+    category: 'stylized',
+    thumbnail: 'romance-soft',
+    lut: 'ROMANCE_PASTEL_SOFT',
+    settings: { contrast: 0.95, saturation: 0.9, temperature: 8, tint: 12, shadows: 10, highlights: -10, lift: 0.03, gamma: 1.08, gain: 0.95 },
+    tags: ['romantic', 'soft', 'pastel', 'wedding'],
+  },
+  // Music Video LUTs
+  {
+    id: 'vibrant_pop',
+    name: 'Vibrant Pop',
+    description: 'High saturation punchy colors - music video energy',
+    category: 'music_video',
+    thumbnail: 'vibrant-pop',
+    lut: 'VIBRANT_POP_MV',
+    settings: { contrast: 1.3, saturation: 1.4, temperature: 0, tint: 0, shadows: -8, highlights: 15, lift: -0.01, gamma: 0.98, gain: 1.1 },
+    tags: ['vibrant', 'pop', 'colorful', 'energetic'],
+  },
+  // Broadcast LUTs
+  {
+    id: 'clean_natural',
+    name: 'Clean Natural',
+    description: 'Neutral broadcast-safe grading - commercial and documentary',
+    category: 'broadcast',
+    thumbnail: 'clean-natural',
+    lut: 'BROADCAST_NATURAL',
+    settings: { contrast: 1.05, saturation: 1.0, temperature: 0, tint: 0, shadows: 0, highlights: 0, lift: 0.0, gamma: 1.0, gain: 1.0 },
+    tags: ['natural', 'clean', 'broadcast', 'neutral'],
+  },
+];
+
+// Legacy COLOR_GRADES for backward compatibility
  export const COLOR_GRADES: ColorGrade[] = [
    {
      id: 'cinematic_teal_orange',
