@@ -1131,10 +1131,10 @@ Apply all these settings to create a professional edit. Output valid FCPXML only
 
   // ══════════════════════════════════════════════════════════
   // DESKTOP LAYOUT (>= 1024px)
-  // Top 2/3: Canvas & Media, Bottom 1/3: Settings with easy navigation
+  // Full resizable panel layout with vertical tool rail
   // ══════════════════════════════════════════════════════════
   return (
-    <div className="min-h-screen bg-background flex flex-col">
+    <div className="min-h-screen bg-background">
       <Header />
       
       {/* Draft Recovery Banner */}
@@ -1156,55 +1156,39 @@ Apply all these settings to create a professional edit. Output valid FCPXML only
         />
       )}
 
-      <main className="flex-1 flex flex-col overflow-hidden">
-        {/* ═══════════════════════════════════════════════════════════════ */}
-        {/* TOP 2/3: Media Canvas Area - Source, Preview, Timeline, Canvas */}
-        {/* ═══════════════════════════════════════════════════════════════ */}
-        <div className="flex-[2] min-h-0 border-b border-border/40">
-          <ResizablePanelGroup direction="vertical" className="h-full">
-            {/* Row 1: Source, Preview, Timeline Visualizer */}
-            <ResizablePanel defaultSize={45} minSize={30} maxSize={60}>
-              <div className="h-full p-3 overflow-hidden">
-                <div className="grid grid-cols-3 gap-3 h-full">
-                  <div className="h-full overflow-hidden rounded-xl">
-                    <SourcePanel
-                      file={file}
-                      onFileChange={setFile}
-                      fileContent={fileContent}
-                      disabled={isProcessing}
-                      onFormatDetected={handleFormatDetected}
-                    />
-                  </div>
-                  <div className="h-full overflow-hidden rounded-xl">
-                    <VideoPreviewPanel
-                      file={file}
-                      detectedFormat={detectedFormat}
-                      colorGrade={config.colorGrade}
-                      effectPreset={config.effectPreset}
-                      isProcessing={isProcessing}
-                      colorSettings={colorSettings}
-                      beatTimestamps={audioAnalysis?.beatTimestamps}
-                      sceneChangeTimestamps={videoAnalysis?.sceneChanges.map(sc => sc.timestamp)}
-                      videoRef={previewVideoRef}
-                    />
-                  </div>
-                  <div className="h-full overflow-hidden rounded-xl">
-                    <TimelineVisualizerDetailed
-                      fileContent={fileContent}
-                      isProcessing={isProcessing}
-                      detectedFormat={detectedFormat}
-                      detectedBPM={detectedBPM}
-                    />
-                  </div>
+      <main className="h-[calc(100vh-56px)] overflow-hidden">
+        <ResizablePanelGroup direction="vertical" className="h-full">
+          {/* Top section - Source & Timeline Preview */}
+          <ResizablePanel defaultSize={35} minSize={15} maxSize={70} className="overflow-hidden">
+            <div className="h-full bg-card/30 backdrop-blur-sm overflow-auto">
+              <div className="px-4 py-4">
+                <div className="grid grid-cols-3 gap-4 mb-4">
+                  <SourcePanel
+                    file={file}
+                    onFileChange={setFile}
+                    fileContent={fileContent}
+                    disabled={isProcessing}
+                    onFormatDetected={handleFormatDetected}
+                  />
+                  <VideoPreviewPanel
+                    file={file}
+                    detectedFormat={detectedFormat}
+                    colorGrade={config.colorGrade}
+                    effectPreset={config.effectPreset}
+                    isProcessing={isProcessing}
+                    colorSettings={colorSettings}
+                    beatTimestamps={audioAnalysis?.beatTimestamps}
+                    sceneChangeTimestamps={videoAnalysis?.sceneChanges.map(sc => sc.timestamp)}
+                    videoRef={previewVideoRef}
+                  />
+                  <TimelineVisualizerDetailed
+                    fileContent={fileContent}
+                    isProcessing={isProcessing}
+                    detectedFormat={detectedFormat}
+                    detectedBPM={detectedBPM}
+                  />
                 </div>
-              </div>
-            </ResizablePanel>
-
-            <ResizableHandle className="h-1 bg-border/30 hover:bg-primary/20 transition-colors" />
-
-            {/* Row 2: Editing Canvas - Full Width */}
-            <ResizablePanel defaultSize={55} minSize={40}>
-              <div className="h-full p-3 pt-0 overflow-hidden">
+                {/* Editing Canvas - Full width timeline with effect indicators */}
                 <EditingCanvas
                   file={file}
                   detectedFormat={detectedFormat}
@@ -1219,127 +1203,79 @@ Apply all these settings to create a professional edit. Output valid FCPXML only
                   onPlayheadChange={(time) => setPlayheadPosition(time)}
                 />
               </div>
-            </ResizablePanel>
-          </ResizablePanelGroup>
-        </div>
+            </div>
+          </ResizablePanel>
 
-        {/* ═══════════════════════════════════════════════════════════════ */}
-        {/* BOTTOM 1/3: Settings & Tools with Easy Navigation              */}
-        {/* ═══════════════════════════════════════════════════════════════ */}
-        <div className="flex-1 min-h-0 bg-card/20 backdrop-blur-sm">
-          <ResizablePanelGroup direction="horizontal" className="h-full">
-            {/* Compact Tool Rail - Sticky Left */}
-            <ResizablePanel defaultSize={6} minSize={5} maxSize={8}>
-              <ScrollArea className="h-full">
-                <div className="p-1.5 flex flex-col gap-1">
-                  {toolSections.map((section) => {
-                    const active = activeTab === section.id;
-                    return (
-                      <button
-                        key={section.id}
-                        onClick={() => handleTabChange(section.id)}
-                        title={section.label}
-                        className={cn(
-                          'group w-full rounded-lg p-2 flex flex-col items-center gap-1 text-[9px] font-semibold transition-all border',
-                          active
-                            ? 'bg-primary text-primary-foreground border-primary shadow-lg shadow-primary/20'
-                            : 'bg-background/60 text-muted-foreground border-border/40 hover:border-primary/50 hover:bg-primary/5'
-                        )}
-                      >
-                        <div className={cn(
-                          'w-7 h-7 rounded-md flex items-center justify-center transition-colors',
-                          active ? 'bg-primary-foreground/10' : 'bg-muted/40'
-                        )}>
-                          {section.icon}
-                        </div>
-                        <span className={cn('truncate max-w-full', active && 'text-primary-foreground')}>
-                          {section.label}
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </ScrollArea>
-            </ResizablePanel>
+          <ResizableHandle withHandle className="hover:bg-primary/10 transition-colors" />
 
-            <ResizableHandle className="w-0.5 bg-border/30 hover:bg-primary/20 transition-colors" />
+          {/* Bottom section - Studio Tools & Output */}
+          <ResizablePanel defaultSize={65} minSize={30} className="overflow-hidden">
+            <div className="px-4 py-5 h-full">
+              <ResizablePanelGroup direction="horizontal" className="h-full rounded-lg">
+                {/* Left - Tool Tabs */}
+                <ResizablePanel defaultSize={65} minSize={40} maxSize={85} className="overflow-hidden">
+                  <div className="h-full flex gap-4">
+                    {/* Desktop vertical rail */}
+                    <div className="flex flex-col gap-2 w-[82px] pr-1">
+                      <div className="rounded-2xl border border-border/40 bg-card/50 backdrop-blur-sm shadow-sm p-2 flex flex-col gap-2 h-full">
+                        {toolSections.map((section) => {
+                          const active = activeTab === section.id;
+                          return (
+                            <button
+                              key={section.id}
+                              onClick={() => handleTabChange(section.id)}
+                              className={cn(
+                                'group w-full rounded-xl px-2 py-3 flex flex-col items-center gap-2 text-[10px] font-medium transition-all border',
+                                active
+                                  ? 'bg-primary text-primary-foreground border-primary shadow-primary/30 shadow-lg'
+                                  : 'bg-muted/30 text-muted-foreground border-border/50 hover:border-primary/40 hover:bg-primary/10'
+                              )}
+                            >
+                              <div className={cn(
+                                'w-10 h-10 rounded-lg flex items-center justify-center transition-all',
+                                active ? 'bg-primary-foreground/15 text-primary-foreground' : 'bg-background/70 text-foreground'
+                              )}>
+                                {section.icon}
+                              </div>
+                              <span className={cn('leading-tight text-center', active && 'text-primary-foreground')}>
+                                {section.label}
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
 
-            {/* Tool Content - Scrollable */}
-            <ResizablePanel defaultSize={54} minSize={40}>
-              <Tabs value={activeTab} onValueChange={handleTabChange} className="h-full flex flex-col">
-                {/* Quick access tab bar for fast navigation */}
-                <div className="flex-shrink-0 border-b border-border/30 px-3 py-1.5 bg-background/50">
-                  <div className="flex items-center gap-1 overflow-x-auto scrollbar-hide">
-                    {toolSections.slice(0, 8).map((section) => {
-                      const active = activeTab === section.id;
-                      return (
-                        <button
-                          key={section.id}
-                          onClick={() => handleTabChange(section.id)}
-                          className={cn(
-                            'flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] font-semibold whitespace-nowrap transition-all',
-                            active
-                              ? 'bg-primary text-primary-foreground'
-                              : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground'
-                          )}
-                        >
-                          {toolIcons[section.id]}
-                          <span>{section.label}</span>
-                        </button>
-                      );
-                    })}
-                    <div className="w-px h-4 bg-border/50 mx-1" />
-                    {toolSections.slice(8).map((section) => {
-                      const active = activeTab === section.id;
-                      return (
-                        <button
-                          key={section.id}
-                          onClick={() => handleTabChange(section.id)}
-                          className={cn(
-                            'flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] font-semibold whitespace-nowrap transition-all',
-                            active
-                              ? 'bg-primary text-primary-foreground'
-                              : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground'
-                          )}
-                        >
-                          {toolIcons[section.id]}
-                          <span>{section.label}</span>
-                        </button>
-                      );
-                    })}
+                    <Tabs value={activeTab} onValueChange={handleTabChange} className="h-full flex-1 flex flex-col">
+                      <TabsList className="sr-only">
+                        {toolSections.map((section) => (
+                          <TabsTrigger key={section.id} value={section.id}>
+                            {section.label}
+                          </TabsTrigger>
+                        ))}
+                      </TabsList>
+
+                      <div className="flex-1 overflow-auto pr-1">
+                        {renderToolContent()}
+                      </div>
+                    </Tabs>
                   </div>
-                </div>
+                </ResizablePanel>
 
-                <TabsList className="sr-only">
-                  {toolSections.map((section) => (
-                    <TabsTrigger key={section.id} value={section.id}>
-                      {section.label}
-                    </TabsTrigger>
-                  ))}
-                </TabsList>
+                <ResizableHandle withHandle className="hover:bg-primary/10 transition-colors" />
 
-                <ScrollArea className="flex-1">
-                  <div className="p-3">
-                    {renderToolContent()}
+                {/* Right - Output + Workflow */}
+                <ResizablePanel defaultSize={35} minSize={15} maxSize={50} className="overflow-auto pl-4">
+                  {/* Workflow Progress - Vertical sidebar on desktop */}
+                  <div className="mb-4">
+                    <VisualWorkflowIndicator {...workflowIndicatorProps} orientation="vertical" />
                   </div>
-                </ScrollArea>
-              </Tabs>
-            </ResizablePanel>
-
-            <ResizableHandle withHandle className="hover:bg-primary/20 transition-colors" />
-
-            {/* Output & Workflow Panel */}
-            <ResizablePanel defaultSize={40} minSize={25} maxSize={50}>
-              <ScrollArea className="h-full">
-                <div className="p-3 space-y-3">
-                  {/* Workflow Progress */}
-                  <VisualWorkflowIndicator {...workflowIndicatorProps} orientation="vertical" />
                   {renderSidePanel()}
-                </div>
-              </ScrollArea>
-            </ResizablePanel>
-          </ResizablePanelGroup>
-        </div>
+                </ResizablePanel>
+              </ResizablePanelGroup>
+            </div>
+          </ResizablePanel>
+        </ResizablePanelGroup>
       </main>
 
       {isProcessing && (
