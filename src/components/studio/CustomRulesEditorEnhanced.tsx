@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useEffect } from 'react';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -43,14 +43,23 @@ import {
   ChevronLeft,
   Grid3X3,
   LayoutList,
-  Play
+  Play,
+  Bookmark,
+  BookmarkCheck,
+  Save,
+  Trash2,
+  Edit3,
+  FolderPlus,
+  User
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger, SheetClose } from '@/components/ui/sheet';
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerTrigger, DrawerClose } from '@/components/ui/drawer';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { toast } from 'sonner';
 
 interface CustomRulesEditorProps {
   value: string;
@@ -318,11 +327,55 @@ const VISION_TEMPLATES = [
   },
 ];
 
-const TEMPLATE_CATEGORIES = ['All', 'Film', 'Music', 'Social', 'Documentary', 'Commercial', 'Events', 'Educational', 'Stylized'];
+const TEMPLATE_CATEGORIES = ['All', 'Favorites', 'My Templates', 'Film', 'Music', 'Social', 'Documentary', 'Commercial', 'Events', 'Educational', 'Stylized'];
+
+// Storage keys
+const FAVORITES_STORAGE_KEY = 'vision-template-favorites';
+const CUSTOM_TEMPLATES_STORAGE_KEY = 'vision-custom-templates';
+
+// Custom template type
+interface CustomTemplate {
+  id: string;
+  icon: string;
+  label: string;
+  category: string;
+  description: string;
+  color: string;
+  rules: string;
+  isCustom: true;
+  createdAt: number;
+}
+
+// Icon mapping for custom templates
+const CUSTOM_ICON_OPTIONS = [
+  { id: 'star', icon: Star, label: 'Star' },
+  { id: 'heart', icon: Heart, label: 'Heart' },
+  { id: 'flame', icon: Flame, label: 'Flame' },
+  { id: 'film', icon: Film, label: 'Film' },
+  { id: 'music', icon: Music, label: 'Music' },
+  { id: 'camera', icon: Camera, label: 'Camera' },
+  { id: 'palette', icon: Palette, label: 'Palette' },
+  { id: 'zap', icon: Zap, label: 'Zap' },
+  { id: 'target', icon: Target, label: 'Target' },
+  { id: 'sparkles', icon: Sparkles, label: 'Sparkles' },
+];
+
+const CUSTOM_COLOR_OPTIONS = [
+  { id: 'purple', value: 'from-purple-500 to-pink-600' },
+  { id: 'blue', value: 'from-blue-500 to-indigo-600' },
+  { id: 'green', value: 'from-emerald-500 to-teal-600' },
+  { id: 'orange', value: 'from-amber-500 to-orange-600' },
+  { id: 'red', value: 'from-rose-500 to-red-600' },
+  { id: 'cyan', value: 'from-cyan-500 to-blue-600' },
+  { id: 'pink', value: 'from-pink-400 to-rose-500' },
+  { id: 'yellow', value: 'from-yellow-500 to-amber-600' },
+];
 
 // Category icons mapping
 const CATEGORY_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
   'All': Grid3X3,
+  'Favorites': BookmarkCheck,
+  'My Templates': User,
   'Film': Film,
   'Music': Music,
   'Social': Flame,
@@ -361,6 +414,148 @@ export default function CustomRulesEditorEnhanced({ value, onChange, disabled }:
   const [searchQuery, setSearchQuery] = useState('');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const isMobile = useIsMobile();
+  
+  // Favorites state
+  const [favorites, setFavorites] = useState<string[]>([]);
+  
+  // Custom templates state
+  const [customTemplates, setCustomTemplates] = useState<CustomTemplate[]>([]);
+  const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [editingTemplate, setEditingTemplate] = useState<CustomTemplate | null>(null);
+  const [newTemplate, setNewTemplate] = useState({
+    label: '',
+    description: '',
+    icon: 'star',
+    color: 'from-purple-500 to-pink-600',
+    rules: ''
+  });
+
+  // Load favorites and custom templates from localStorage
+  useEffect(() => {
+    try {
+      const savedFavorites = localStorage.getItem(FAVORITES_STORAGE_KEY);
+      if (savedFavorites) {
+        setFavorites(JSON.parse(savedFavorites));
+      }
+      const savedCustomTemplates = localStorage.getItem(CUSTOM_TEMPLATES_STORAGE_KEY);
+      if (savedCustomTemplates) {
+        setCustomTemplates(JSON.parse(savedCustomTemplates));
+      }
+    } catch (error) {
+      console.error('Error loading saved data:', error);
+    }
+  }, []);
+
+  // Save favorites to localStorage
+  const saveFavorites = useCallback((newFavorites: string[]) => {
+    setFavorites(newFavorites);
+    localStorage.setItem(FAVORITES_STORAGE_KEY, JSON.stringify(newFavorites));
+  }, []);
+
+  // Toggle favorite
+  const toggleFavorite = useCallback((templateId: string) => {
+    const newFavorites = favorites.includes(templateId)
+      ? favorites.filter(id => id !== templateId)
+      : [...favorites, templateId];
+    saveFavorites(newFavorites);
+    toast.success(favorites.includes(templateId) ? 'Removed from favorites' : 'Added to favorites');
+  }, [favorites, saveFavorites]);
+
+  // Save custom templates to localStorage
+  const saveCustomTemplates = useCallback((templates: CustomTemplate[]) => {
+    setCustomTemplates(templates);
+    localStorage.setItem(CUSTOM_TEMPLATES_STORAGE_KEY, JSON.stringify(templates));
+  }, []);
+
+  // Create custom template
+  const createCustomTemplate = useCallback(() => {
+    if (!newTemplate.label.trim() || !newTemplate.rules.trim()) {
+      toast.error('Please fill in name and instructions');
+      return;
+    }
+    const template: CustomTemplate = {
+      id: `custom_${Date.now()}`,
+      icon: newTemplate.icon,
+      label: newTemplate.label.trim(),
+      category: 'My Templates',
+      description: newTemplate.description.trim() || 'Custom template',
+      color: newTemplate.color,
+      rules: newTemplate.rules.trim(),
+      isCustom: true,
+      createdAt: Date.now()
+    };
+    saveCustomTemplates([...customTemplates, template]);
+    setNewTemplate({ label: '', description: '', icon: 'star', color: 'from-purple-500 to-pink-600', rules: '' });
+    setShowCreateDialog(false);
+    toast.success('Template created successfully!');
+  }, [newTemplate, customTemplates, saveCustomTemplates]);
+
+  // Update custom template
+  const updateCustomTemplate = useCallback(() => {
+    if (!editingTemplate || !newTemplate.label.trim() || !newTemplate.rules.trim()) {
+      toast.error('Please fill in name and instructions');
+      return;
+    }
+    const updatedTemplates = customTemplates.map(t => 
+      t.id === editingTemplate.id 
+        ? { ...t, label: newTemplate.label.trim(), description: newTemplate.description.trim(), icon: newTemplate.icon, color: newTemplate.color, rules: newTemplate.rules.trim() }
+        : t
+    );
+    saveCustomTemplates(updatedTemplates);
+    setEditingTemplate(null);
+    setNewTemplate({ label: '', description: '', icon: 'star', color: 'from-purple-500 to-pink-600', rules: '' });
+    setShowCreateDialog(false);
+    toast.success('Template updated successfully!');
+  }, [editingTemplate, newTemplate, customTemplates, saveCustomTemplates]);
+
+  // Delete custom template
+  const deleteCustomTemplate = useCallback((templateId: string) => {
+    const updatedTemplates = customTemplates.filter(t => t.id !== templateId);
+    saveCustomTemplates(updatedTemplates);
+    if (favorites.includes(templateId)) {
+      saveFavorites(favorites.filter(id => id !== templateId));
+    }
+    setPreviewTemplate(null);
+    toast.success('Template deleted');
+  }, [customTemplates, saveCustomTemplates, favorites, saveFavorites]);
+
+  // Start editing a template
+  const startEditTemplate = useCallback((template: CustomTemplate) => {
+    setEditingTemplate(template);
+    setNewTemplate({
+      label: template.label,
+      description: template.description,
+      icon: template.icon,
+      color: template.color,
+      rules: template.rules
+    });
+    setShowCreateDialog(true);
+  }, []);
+
+  // Save current instructions as template
+  const saveCurrentAsTemplate = useCallback(() => {
+    if (!value.trim()) {
+      toast.error('No instructions to save');
+      return;
+    }
+    setNewTemplate(prev => ({ ...prev, rules: value }));
+    setShowCreateDialog(true);
+  }, [value]);
+
+  // Get icon component for custom template
+  const getCustomIcon = (iconId: string) => {
+    return CUSTOM_ICON_OPTIONS.find(o => o.id === iconId)?.icon || Star;
+  };
+
+  // Combined templates (built-in + custom)
+  const allTemplates = useMemo(() => {
+    const builtIn = VISION_TEMPLATES.map(t => ({ ...t, isCustom: false as const }));
+    const custom = customTemplates.map(t => ({ 
+      ...t, 
+      icon: getCustomIcon(t.icon)
+    }));
+    return [...builtIn, ...custom];
+  }, [customTemplates]);
 
   const addQuickRule = (rule: string) => {
     if (addedRules.includes(rule)) return;
@@ -379,10 +574,18 @@ export default function CustomRulesEditorEnhanced({ value, onChange, disabled }:
   };
 
   const filteredTemplates = useMemo(() => {
-    let templates = VISION_TEMPLATES;
+    let templates = allTemplates;
     
+    // Filter by favorites
+    if (activeCategory === 'Favorites') {
+      templates = templates.filter(t => favorites.includes(t.id));
+    }
+    // Filter by custom templates
+    else if (activeCategory === 'My Templates') {
+      templates = templates.filter(t => 'isCustom' in t && t.isCustom);
+    }
     // Filter by category
-    if (activeCategory !== 'All') {
+    else if (activeCategory !== 'All') {
       templates = templates.filter(t => t.category === activeCategory);
     }
     
@@ -398,7 +601,7 @@ export default function CustomRulesEditorEnhanced({ value, onChange, disabled }:
     }
     
     return templates;
-  }, [activeCategory, searchQuery]);
+  }, [activeCategory, searchQuery, allTemplates, favorites]);
 
   const handleQuickIdeaSubmit = useCallback(() => {
     if (!quickIdea.trim()) return;
@@ -416,7 +619,8 @@ export default function CustomRulesEditorEnhanced({ value, onChange, disabled }:
     <div className="flex flex-col h-full overflow-hidden">
       {/* Search Bar */}
       <div className="p-3 sm:p-4 border-b border-border/30 bg-background/50 backdrop-blur-sm">
-        <div className="relative">
+        <div className="flex gap-2">
+          <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
             value={searchQuery}
@@ -434,6 +638,18 @@ export default function CustomRulesEditorEnhanced({ value, onChange, disabled }:
               <X className="w-3 h-3" />
             </Button>
           )}
+          </div>
+          <Button
+            onClick={() => {
+              setEditingTemplate(null);
+              setNewTemplate({ label: '', description: '', icon: 'star', color: 'from-purple-500 to-pink-600', rules: '' });
+              setShowCreateDialog(true);
+            }}
+            className="h-10 sm:h-11 px-3 sm:px-4 bg-primary hover:bg-primary/90 gap-1.5"
+          >
+            <FolderPlus className="w-4 h-4" />
+            <span className="hidden sm:inline">New Template</span>
+          </Button>
         </div>
       </div>
 
@@ -443,6 +659,13 @@ export default function CustomRulesEditorEnhanced({ value, onChange, disabled }:
           <div className="flex gap-2 pb-1">
             {TEMPLATE_CATEGORIES.map((cat) => {
               const Icon = CATEGORY_ICONS[cat] || Grid3X3;
+              const count = cat === 'All' 
+                ? allTemplates.length 
+                : cat === 'Favorites' 
+                  ? favorites.length
+                  : cat === 'My Templates'
+                    ? customTemplates.length
+                    : VISION_TEMPLATES.filter(t => t.category === cat).length;
               return (
                 <Button
                   key={cat}
@@ -452,7 +675,9 @@ export default function CustomRulesEditorEnhanced({ value, onChange, disabled }:
                     'h-9 px-3 sm:px-4 whitespace-nowrap gap-1.5 flex-shrink-0 transition-all',
                     activeCategory === cat 
                       ? 'bg-primary text-primary-foreground shadow-md' 
-                      : 'bg-background hover:bg-muted'
+                      : 'bg-background hover:bg-muted',
+                    cat === 'Favorites' && favorites.length > 0 && 'border-amber-500/50',
+                    cat === 'My Templates' && customTemplates.length > 0 && 'border-primary/50'
                   )}
                   onClick={() => {
                     setActiveCategory(cat);
@@ -461,9 +686,12 @@ export default function CustomRulesEditorEnhanced({ value, onChange, disabled }:
                 >
                   <Icon className="w-3.5 h-3.5" />
                   <span className="text-xs font-medium">{cat}</span>
-                  {cat !== 'All' && (
-                    <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-[10px] bg-background/20">
-                      {VISION_TEMPLATES.filter(t => t.category === cat).length}
+                  {count > 0 && (
+                    <Badge variant="secondary" className={cn(
+                      "ml-1 h-5 px-1.5 text-[10px]",
+                      activeCategory === cat ? "bg-background/20" : "bg-muted"
+                    )}>
+                      {count}
                     </Badge>
                   )}
                 </Button>
@@ -516,27 +744,58 @@ export default function CustomRulesEditorEnhanced({ value, onChange, disabled }:
             {filteredTemplates.length === 0 ? (
               <div className="col-span-full flex flex-col items-center justify-center py-12 text-center">
                 <div className="w-16 h-16 rounded-2xl bg-muted/50 flex items-center justify-center mb-4">
-                  <Search className="w-8 h-8 text-muted-foreground/50" />
+                  {activeCategory === 'Favorites' ? (
+                    <Bookmark className="w-8 h-8 text-muted-foreground/50" />
+                  ) : activeCategory === 'My Templates' ? (
+                    <FolderPlus className="w-8 h-8 text-muted-foreground/50" />
+                  ) : (
+                    <Search className="w-8 h-8 text-muted-foreground/50" />
+                  )}
                 </div>
-                <p className="text-sm font-medium text-muted-foreground">No templates found</p>
-                <p className="text-xs text-muted-foreground/70 mt-1">Try a different search or category</p>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="mt-4"
-                  onClick={() => {
-                    setSearchQuery('');
-                    setActiveCategory('All');
-                  }}
-                >
-                  Clear filters
-                </Button>
+                <p className="text-sm font-medium text-muted-foreground">
+                  {activeCategory === 'Favorites' ? 'No favorites yet' : activeCategory === 'My Templates' ? 'No custom templates' : 'No templates found'}
+                </p>
+                <p className="text-xs text-muted-foreground/70 mt-1">
+                  {activeCategory === 'Favorites' 
+                    ? 'Bookmark templates for quick access' 
+                    : activeCategory === 'My Templates'
+                      ? 'Create your first custom template'
+                      : 'Try a different search or category'}
+                </p>
+                {activeCategory === 'My Templates' ? (
+                  <Button
+                    size="sm"
+                    className="mt-4 gap-1.5"
+                    onClick={() => {
+                      setEditingTemplate(null);
+                      setNewTemplate({ label: '', description: '', icon: 'star', color: 'from-purple-500 to-pink-600', rules: '' });
+                      setShowCreateDialog(true);
+                    }}
+                  >
+                    <Plus className="w-4 h-4" />
+                    Create Template
+                  </Button>
+                ) : activeCategory !== 'Favorites' && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="mt-4"
+                    onClick={() => {
+                      setSearchQuery('');
+                      setActiveCategory('All');
+                    }}
+                  >
+                    Clear filters
+                  </Button>
+                )}
               </div>
             ) : (
               filteredTemplates.map((template) => {
                 const Icon = template.icon;
                 const isSelected = selectedTemplate === template.id;
                 const isPreviewing = previewTemplate?.id === template.id;
+                const isFavorite = favorites.includes(template.id);
+                const isCustom = 'isCustom' in template && template.isCustom;
                 
                 if (!isMobile && viewMode === 'list') {
                   // List view for desktop
@@ -563,10 +822,25 @@ export default function CustomRulesEditorEnhanced({ value, onChange, disabled }:
                         <div className="flex items-center gap-2 mb-1">
                           <p className="text-sm font-semibold text-foreground">{template.label}</p>
                           <Badge variant="outline" className="text-[10px]">{template.category}</Badge>
+                          {isCustom && <Badge variant="secondary" className="text-[10px]">Custom</Badge>}
                           {isSelected && <Check className="w-4 h-4 text-primary" />}
                         </div>
                         <p className="text-xs text-muted-foreground line-clamp-1">{template.description}</p>
                       </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className={cn(
+                          "h-8 w-8 p-0 flex-shrink-0",
+                          isFavorite ? "text-amber-500" : "text-muted-foreground opacity-0 group-hover:opacity-100"
+                        )}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleFavorite(template.id);
+                        }}
+                      >
+                        {isFavorite ? <BookmarkCheck className="w-4 h-4" /> : <Bookmark className="w-4 h-4" />}
+                      </Button>
                       <ArrowRight className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />
                     </button>
                   );
@@ -599,9 +873,26 @@ export default function CustomRulesEditorEnhanced({ value, onChange, disabled }:
                           <Icon className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-semibold text-foreground">{template.label}</p>
-                          <div className="flex items-center gap-2 mt-0.5">
+                          <div className="flex items-center gap-2">
+                            <p className="text-sm font-semibold text-foreground truncate">{template.label}</p>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className={cn(
+                                "h-6 w-6 p-0 flex-shrink-0",
+                                isFavorite ? "text-amber-500" : "text-muted-foreground opacity-0 group-hover:opacity-100"
+                              )}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                toggleFavorite(template.id);
+                              }}
+                            >
+                              {isFavorite ? <BookmarkCheck className="w-3.5 h-3.5" /> : <Bookmark className="w-3.5 h-3.5" />}
+                            </Button>
+                          </div>
+                          <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
                             <Badge variant="outline" className="text-[10px] px-1.5">{template.category}</Badge>
+                            {isCustom && <Badge variant="secondary" className="text-[10px] px-1.5">Custom</Badge>}
                             {isSelected && (
                               <Badge variant="default" className="text-[10px] px-1.5 bg-primary">Active</Badge>
                             )}
@@ -640,8 +931,25 @@ export default function CustomRulesEditorEnhanced({ value, onChange, disabled }:
                 </div>
                 <div className="flex-1 min-w-0">
                   <h3 className="font-bold text-lg text-foreground">{previewTemplate.label}</h3>
-                  <Badge variant="outline" className="text-[10px] mt-1">{previewTemplate.category}</Badge>
+                  <div className="flex items-center gap-1.5 mt-1">
+                    <Badge variant="outline" className="text-[10px]">{previewTemplate.category}</Badge>
+                    {'isCustom' in previewTemplate && previewTemplate.isCustom && (
+                      <Badge variant="secondary" className="text-[10px]">Custom</Badge>
+                    )}
+                  </div>
                 </div>
+                <div className="flex gap-1">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className={cn(
+                      "h-8 w-8 p-0",
+                      favorites.includes(previewTemplate.id) ? "text-amber-500" : "text-muted-foreground"
+                    )}
+                    onClick={() => toggleFavorite(previewTemplate.id)}
+                  >
+                    {favorites.includes(previewTemplate.id) ? <BookmarkCheck className="w-4 h-4" /> : <Bookmark className="w-4 h-4" />}
+                  </Button>
                 <Button
                   variant="ghost"
                   size="sm"
@@ -650,6 +958,7 @@ export default function CustomRulesEditorEnhanced({ value, onChange, disabled }:
                 >
                   <X className="w-4 h-4" />
                 </Button>
+                </div>
               </div>
               <p className="text-sm text-muted-foreground">{previewTemplate.description}</p>
             </div>
@@ -668,7 +977,7 @@ export default function CustomRulesEditorEnhanced({ value, onChange, disabled }:
               </div>
             </ScrollArea>
             
-            <div className="p-4 border-t border-border/30 bg-background/50 backdrop-blur-sm">
+            <div className="p-4 border-t border-border/30 bg-background/50 backdrop-blur-sm space-y-2">
               <Button 
                 className="w-full h-12 bg-primary hover:bg-primary/90 font-semibold text-base shadow-lg shadow-primary/20"
                 onClick={() => applyTemplate(previewTemplate)}
@@ -676,6 +985,31 @@ export default function CustomRulesEditorEnhanced({ value, onChange, disabled }:
                 <Check className="w-5 h-5 mr-2" />
                 Apply Template
               </Button>
+              
+              {'isCustom' in previewTemplate && previewTemplate.isCustom && (
+                <div className="flex gap-2">
+                  <Button 
+                    variant="outline"
+                    className="flex-1 h-9"
+                    onClick={() => {
+                      const customT = customTemplates.find(t => t.id === previewTemplate.id);
+                      if (customT) startEditTemplate(customT);
+                    }}
+                  >
+                    <Edit3 className="w-4 h-4 mr-1" />
+                    Edit
+                  </Button>
+                  <Button 
+                    variant="outline"
+                    className="flex-1 h-9 text-destructive hover:text-destructive hover:bg-destructive/10"
+                    onClick={() => deleteCustomTemplate(previewTemplate.id)}
+                  >
+                    <Trash2 className="w-4 h-4 mr-1" />
+                    Delete
+                  </Button>
+                </div>
+              )}
+              
               <p className="text-[10px] text-center text-muted-foreground mt-2">
                 This will replace your current instructions
               </p>
@@ -702,7 +1036,110 @@ export default function CustomRulesEditorEnhanced({ value, onChange, disabled }:
   );
 
   return (
-    <div className="panel border-2 border-primary/30 bg-gradient-to-br from-primary/5 via-transparent to-accent/5 shadow-lg shadow-primary/5">
+    <>
+      {/* Create/Edit Template Dialog */}
+      <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FolderPlus className="w-5 h-5 text-primary" />
+              {editingTemplate ? 'Edit Template' : 'Create New Template'}
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Template Name</label>
+              <Input
+                value={newTemplate.label}
+                onChange={(e) => setNewTemplate(prev => ({ ...prev, label: e.target.value }))}
+                placeholder="e.g., My Cinematic Style"
+                className="h-10"
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Description</label>
+              <Input
+                value={newTemplate.description}
+                onChange={(e) => setNewTemplate(prev => ({ ...prev, description: e.target.value }))}
+                placeholder="Brief description of what this template does"
+                className="h-10"
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Icon</label>
+              <div className="flex flex-wrap gap-2">
+                {CUSTOM_ICON_OPTIONS.map((opt) => {
+                  const IconComp = opt.icon;
+                  return (
+                    <button
+                      key={opt.id}
+                      type="button"
+                      onClick={() => setNewTemplate(prev => ({ ...prev, icon: opt.id }))}
+                      className={cn(
+                        'w-10 h-10 rounded-lg border flex items-center justify-center transition-all',
+                        newTemplate.icon === opt.id 
+                          ? 'border-primary bg-primary/10 ring-2 ring-primary/30' 
+                          : 'border-border hover:border-primary/50'
+                      )}
+                    >
+                      <IconComp className="w-5 h-5" />
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+            
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Color</label>
+              <div className="flex flex-wrap gap-2">
+                {CUSTOM_COLOR_OPTIONS.map((opt) => (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    onClick={() => setNewTemplate(prev => ({ ...prev, color: opt.value }))}
+                    className={cn(
+                      'w-10 h-10 rounded-lg border transition-all bg-gradient-to-br',
+                      opt.value,
+                      newTemplate.color === opt.value 
+                        ? 'ring-2 ring-primary ring-offset-2' 
+                        : 'hover:scale-105'
+                    )}
+                  />
+                ))}
+              </div>
+            </div>
+            
+            <div className="space-y-2">
+              <label className="text-sm font-medium">AI Instructions</label>
+              <Textarea
+                value={newTemplate.rules}
+                onChange={(e) => setNewTemplate(prev => ({ ...prev, rules: e.target.value }))}
+                placeholder="Enter your custom AI editing instructions..."
+                rows={8}
+                className="font-mono text-xs resize-none"
+              />
+            </div>
+          </div>
+          
+          <DialogFooter className="gap-2 sm:gap-0">
+            <DialogClose asChild>
+              <Button variant="outline">Cancel</Button>
+            </DialogClose>
+            <Button 
+              onClick={editingTemplate ? updateCustomTemplate : createCustomTemplate}
+              disabled={!newTemplate.label.trim() || !newTemplate.rules.trim()}
+            >
+              <Save className="w-4 h-4 mr-1" />
+              {editingTemplate ? 'Save Changes' : 'Create Template'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <div className="panel border-2 border-primary/30 bg-gradient-to-br from-primary/5 via-transparent to-accent/5 shadow-lg shadow-primary/5">
       <Collapsible open={isExpanded} onOpenChange={setIsExpanded}>
         <CollapsibleTrigger asChild>
           <div className="panel-header cursor-pointer hover:bg-muted/50 transition-colors">
@@ -984,7 +1421,7 @@ Examples:
             </div>
 
             {/* Action Buttons */}
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between gap-2">
               <Button
                 variant="ghost"
                 size="sm"
@@ -999,7 +1436,19 @@ Examples:
                 <RotateCcw className="w-3 h-3 mr-1" />
                 Reset All
               </Button>
-              <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+              
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-[10px] h-7 gap-1"
+                onClick={saveCurrentAsTemplate}
+                disabled={disabled || !value.trim()}
+              >
+                <Save className="w-3 h-3" />
+                Save as Template
+              </Button>
+              
+              <div className="flex items-center gap-2 text-[10px] text-muted-foreground flex-shrink-0">
                 <Check className="w-3 h-3 text-success" />
                 <span>Auto-saved</span>
               </div>
@@ -1008,5 +1457,6 @@ Examples:
         </CollapsibleContent>
       </Collapsible>
     </div>
+    </>
   );
 }
