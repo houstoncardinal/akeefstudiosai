@@ -18,6 +18,7 @@ import { cn } from '@/lib/utils';
 import SourcePanel from '@/components/studio/SourcePanel';
 import ExportsLibrary from '@/components/studio/ExportsLibrary';
 import TimelineVisualizerDetailed from '@/components/studio/TimelineVisualizerDetailed';
+import EditingCanvas from '@/components/studio/EditingCanvas';
 import VideoPreviewPanel from '@/components/studio/VideoPreviewPanel';
 import StylePanel from '@/components/studio/StylePanel';
 import ColorPanel, { getLUTDefaults } from '@/components/studio/ColorPanel';
@@ -716,11 +717,14 @@ Apply all these settings to create a professional edit. Output valid FCPXML only
                   sceneChangeTimestamps={videoAnalysis?.sceneChanges.map(sc => sc.timestamp)}
                   videoRef={previewVideoRef}
                 />
-                <TimelineVisualizerDetailed
-                  fileContent={fileContent}
-                  isProcessing={isProcessing}
+                <EditingCanvas
+                  file={file}
                   detectedFormat={detectedFormat}
-                  detectedBPM={detectedBPM}
+                  colorGrade={config.colorGrade}
+                  effectPreset={config.effectPreset}
+                  transitions={config.transitions}
+                  graphics={config.graphics}
+                  isProcessing={isProcessing}
                 />
               </div>
             )}
@@ -821,11 +825,14 @@ Apply all these settings to create a professional edit. Output valid FCPXML only
                 />
               </div>
 
-              <TimelineVisualizerDetailed
-                fileContent={fileContent}
-                isProcessing={isProcessing}
+              <EditingCanvas
+                file={file}
                 detectedFormat={detectedFormat}
-                detectedBPM={detectedBPM}
+                colorGrade={config.colorGrade}
+                effectPreset={config.effectPreset}
+                transitions={config.transitions}
+                graphics={config.graphics}
+                isProcessing={isProcessing}
               />
 
               {/* Tool content */}
@@ -899,7 +906,7 @@ Apply all these settings to create a professional edit. Output valid FCPXML only
           <ResizablePanel defaultSize={35} minSize={15} maxSize={70} className="overflow-hidden">
             <div className="h-full bg-card/30 backdrop-blur-sm overflow-auto">
               <div className="px-4 py-4">
-                <div className="grid grid-cols-3 gap-4">
+                <div className="grid grid-cols-3 gap-4 mb-4">
                   <SourcePanel
                     file={file}
                     onFileChange={setFile}
@@ -925,6 +932,16 @@ Apply all these settings to create a professional edit. Output valid FCPXML only
                     detectedBPM={detectedBPM}
                   />
                 </div>
+                {/* Editing Canvas - Full width timeline with effect indicators */}
+                <EditingCanvas
+                  file={file}
+                  detectedFormat={detectedFormat}
+                  colorGrade={config.colorGrade}
+                  effectPreset={config.effectPreset}
+                  transitions={config.transitions}
+                  graphics={config.graphics}
+                  isProcessing={isProcessing}
+                />
               </div>
             </div>
           </ResizablePanel>
