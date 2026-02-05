@@ -41,6 +41,7 @@ import PanelWrapper from '@/components/studio/PanelWrapper';
 import KeyboardShortcutsOverlay from '@/components/studio/KeyboardShortcutsOverlay';
 import DraftRecoveryBanner from '@/components/studio/DraftRecoveryBanner';
 import ToolSectionTabs from '@/components/studio/ToolSectionTabs';
+import WelcomeGuide from '@/components/studio/WelcomeGuide';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/components/ui/resizable';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -71,6 +72,7 @@ import { useAutoSave } from '@/hooks/useAutoSave';
 import { DEFAULT_COLOR_SETTINGS, type FullColorSettings } from '@/hooks/useWebGLRenderer';
 import { useDeviceType } from '@/hooks/use-mobile';
 import { useExportHistory } from '@/hooks/useExportHistory';
+import { useUserPreferences } from '@/hooks/useUserPreferences';
 
 type ProcessingState = 'idle' | 'uploading' | 'processing' | 'completed' | 'failed';
 
@@ -147,6 +149,25 @@ export default function Index() {
   const { toast } = useToast();
   const device = useDeviceType();
   const { records: exportRecords, addExport, removeExport, clearAll: clearExports, redownload: redownloadExport } = useExportHistory();
+  
+  // User preferences and onboarding
+  const { 
+    preferences, 
+    isNewUser, 
+    trackFeatureUse, 
+    markTooltipSeen,
+    updatePreferredSetting,
+    recordExport,
+    completeOnboarding 
+  } = useUserPreferences();
+  const [showWelcome, setShowWelcome] = useState(false);
+
+  // Show welcome guide for new users
+  useEffect(() => {
+    if (isNewUser && !preferences.hasCompletedOnboarding) {
+      setShowWelcome(true);
+    }
+  }, [isNewUser, preferences.hasCompletedOnboarding]);
 
   // File state
   const [file, setFile] = useState<File | null>(null);
@@ -198,6 +219,12 @@ export default function Index() {
   const [outputXml, setOutputXml] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<string>('style');
 
+  // Track tab changes for user preferences
+  const handleTabChange = useCallback((tab: string) => {
+    setActiveTab(tab);
+    trackFeatureUse(`panel-${tab}`);
+  }, [trackFeatureUse]);
+
   // Mobile-specific: collapsible media section
   const [mediaCollapsed, setMediaCollapsed] = useState(false);
   
@@ -235,11 +262,11 @@ export default function Index() {
     { key: 'z', ctrl: true, shift: true, action: () => redoColor(), description: 'Redo', category: 'edit' },
     { key: 's', ctrl: true, action: () => saveDraft(), description: 'Save draft', category: 'edit' },
     // View/Navigation
-    { key: '1', action: () => setActiveTab('style'), description: 'Style panel', category: 'navigation' },
-    { key: '2', action: () => setActiveTab('color'), description: 'Color panel', category: 'navigation' },
-    { key: '3', action: () => setActiveTab('effects'), description: 'Effects panel', category: 'navigation' },
-    { key: '4', action: () => setActiveTab('export'), description: 'Export panel', category: 'navigation' },
-  ], [undoColor, redoColor, saveDraft]);
+    { key: '1', action: () => handleTabChange('style'), description: 'Style panel', category: 'navigation' },
+    { key: '2', action: () => handleTabChange('color'), description: 'Color panel', category: 'navigation' },
+    { key: '3', action: () => handleTabChange('effects'), description: 'Effects panel', category: 'navigation' },
+    { key: '4', action: () => handleTabChange('export'), description: 'Export panel', category: 'navigation' },
+  ], [undoColor, redoColor, saveDraft, handleTabChange]);
 
   // Keyboard shortcuts hook - see actual hook call below after isProcessing is defined
 
@@ -732,7 +759,11 @@ Apply all these settings to create a professional edit. Output valid FCPXML only
         onNewEdit={handleReset}
         config={config}
         showOutput={showOutput}
-        onExportSaved={addExport}
+        onExportSaved={(record) => {
+          addExport(record);
+          recordExport();
+          trackFeatureUse('export-completed');
+        }}
       />
     </>
   );
@@ -799,7 +830,7 @@ Apply all these settings to create a professional edit. Output valid FCPXML only
             )}
 
             {/* Tool panel content */}
-            <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1">
+            <Tabs value={activeTab} onValueChange={handleTabChange} className="flex-1">
               <TabsList className="sr-only">
                 {toolSections.map((section) => (
                   <TabsTrigger key={section.id} value={section.id}>
@@ -827,7 +858,7 @@ Apply all these settings to create a professional edit. Output valid FCPXML only
               return (
                 <button
                   key={section.id}
-                  onClick={() => setActiveTab(section.id)}
+                  onClick={() => handleTabChange(section.id)}
                   className={cn(
                     'flex-shrink-0 flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-lg transition-all min-w-[52px]',
                     active
@@ -905,7 +936,7 @@ Apply all these settings to create a professional edit. Output valid FCPXML only
               />
 
               {/* Tool content */}
-              <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1">
+              <Tabs value={activeTab} onValueChange={handleTabChange} className="flex-1">
                 <TabsList className="sr-only">
                   {toolSections.map((section) => (
                     <TabsTrigger key={section.id} value={section.id}>
@@ -934,7 +965,7 @@ Apply all these settings to create a professional edit. Output valid FCPXML only
               return (
                 <button
                   key={section.id}
-                  onClick={() => setActiveTab(section.id)}
+                  onClick={() => handleTabChange(section.id)}
                   className={cn(
                     'flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all',
                     active
@@ -1051,7 +1082,7 @@ Apply all these settings to create a professional edit. Output valid FCPXML only
                           return (
                             <button
                               key={section.id}
-                              onClick={() => setActiveTab(section.id)}
+                              onClick={() => handleTabChange(section.id)}
                               className={cn(
                                 'group w-full rounded-xl px-2 py-3 flex flex-col items-center gap-2 text-[10px] font-medium transition-all border',
                                 active
@@ -1074,7 +1105,7 @@ Apply all these settings to create a professional edit. Output valid FCPXML only
                       </div>
                     </div>
 
-                    <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full flex-1 flex flex-col">
+                    <Tabs value={activeTab} onValueChange={handleTabChange} className="h-full flex-1 flex flex-col">
                       <TabsList className="sr-only">
                         {toolSections.map((section) => (
                           <TabsTrigger key={section.id} value={section.id}>
@@ -1107,6 +1138,20 @@ Apply all these settings to create a professional edit. Output valid FCPXML only
           progress={progress}
           message={statusMessage}
           config={config}
+        />
+      )}
+
+      {/* Welcome guide for new users */}
+      {showWelcome && (
+        <WelcomeGuide
+          onComplete={() => {
+            setShowWelcome(false);
+            completeOnboarding();
+          }}
+          onDismiss={() => {
+            setShowWelcome(false);
+            completeOnboarding();
+          }}
         />
       )}
     </div>

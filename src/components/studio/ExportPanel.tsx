@@ -1,9 +1,10 @@
 import { EXPORT_FORMATS, type ExportFormat } from '@/lib/presets';
- import { Button } from '@/components/ui/button';
- import { Progress } from '@/components/ui/progress';
- import { cn } from '@/lib/utils';
-import { Download, Loader2, CheckCircle, XCircle, FileOutput, Sparkles, Zap, Film, FileVideo, Video } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Progress } from '@/components/ui/progress';
+import { cn } from '@/lib/utils';
+import { Download, Loader2, CheckCircle, XCircle, FileOutput, Sparkles, Zap, Film, FileVideo, Video, HelpCircle } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import InsightTooltip, { FEATURE_TOOLTIPS } from './InsightTooltip';
  
  interface ExportPanelProps {
    exportFormat: string;
@@ -38,6 +39,9 @@ import { ScrollArea } from '@/components/ui/scroll-area';
           <div className="flex items-center gap-2">
             <FileOutput className="w-3.5 h-3.5 text-accent" />
            <span className="panel-title">Output Format</span>
+           <InsightTooltip hint={FEATURE_TOOLTIPS['export-format']} side="right">
+             <HelpCircle className="w-3 h-3 text-muted-foreground hover:text-primary cursor-help transition-colors" />
+           </InsightTooltip>
           </div>
          <span className="text-[9px] text-muted-foreground font-mono">Video & Project Files</span>
          </div>
@@ -164,37 +168,39 @@ import { ScrollArea } from '@/components/ui/scroll-area';
        )}
  
       {/* Generate Button */}
-      <button
-        onClick={onGenerate}
-        disabled={!canGenerate}
-        className={cn(
-          'w-full h-14 rounded-xl font-bold text-sm flex items-center justify-center gap-3 transition-all duration-300',
-          canGenerate 
-            ? 'btn-premium text-primary-foreground cursor-pointer' 
-            : 'bg-muted border border-border/50 text-muted-foreground cursor-not-allowed'
-        )}
-      >
-        {isProcessing ? (
-          <>
-            <Loader2 className="w-5 h-5 animate-spin" />
-            <span>AI Processing...</span>
-            <span className="text-xs opacity-70 font-mono">{progress}%</span>
-          </>
-        ) : (
-          <>
-            <div className="relative">
-              <Sparkles className="w-5 h-5" />
-              {canGenerate && (
-                <div className="absolute inset-0 animate-ping">
-                  <Sparkles className="w-5 h-5 opacity-50" />
-                </div>
-              )}
-            </div>
-            <span>Generate AI Edit</span>
-            <Zap className="w-4 h-4" />
-          </>
-        )}
-      </button>
+      <InsightTooltip hint={FEATURE_TOOLTIPS['export-generate']} side="top" disabled={isProcessing}>
+        <button
+          onClick={onGenerate}
+          disabled={!canGenerate}
+          className={cn(
+            'w-full h-14 rounded-xl font-bold text-sm flex items-center justify-center gap-3 transition-all duration-300',
+            canGenerate 
+              ? 'btn-premium text-primary-foreground cursor-pointer' 
+              : 'bg-muted border border-border/50 text-muted-foreground cursor-not-allowed'
+          )}
+        >
+          {isProcessing ? (
+            <>
+              <Loader2 className="w-5 h-5 animate-spin" />
+              <span>AI Processing...</span>
+              <span className="text-xs opacity-70 font-mono">{progress}%</span>
+            </>
+          ) : (
+            <>
+              <div className="relative">
+                <Sparkles className="w-5 h-5" />
+                {canGenerate && (
+                  <div className="absolute inset-0 animate-ping">
+                    <Sparkles className="w-5 h-5 opacity-50" />
+                  </div>
+                )}
+              </div>
+              <span>Generate AI Edit</span>
+              <Zap className="w-4 h-4" />
+            </>
+          )}
+        </button>
+      </InsightTooltip>
       
       {/* Hint text */}
       {!canGenerate && !isProcessing && (

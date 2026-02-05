@@ -3,11 +3,12 @@ import { useDropzone } from 'react-dropzone';
 import { 
   Upload, X, CheckCircle, AlertCircle, Video, 
   FileVideo, Zap, Crown, Aperture, Target, Tv, Globe, Play,
-  Layers, Camera, Package, Mountain, Film
+  Layers, Camera, Package, Mountain, Film, HelpCircle
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import InsightTooltip, { FEATURE_TOOLTIPS } from './InsightTooltip';
 import { 
   VIDEO_FORMATS, 
   detectVideoFormat, 
@@ -133,12 +134,17 @@ export default function SourcePanel({ file, onFileChange, fileContent, disabled,
         <div className="flex items-center gap-2">
           <Video className="w-3.5 h-3.5 text-primary" />
           <span className="panel-title">Source Media</span>
+          <InsightTooltip hint={FEATURE_TOOLTIPS['source-upload']} side="right">
+            <HelpCircle className="w-3 h-3 text-muted-foreground hover:text-primary cursor-help transition-colors" />
+          </InsightTooltip>
         </div>
         {file && detectedFormat && (
           <div className="flex items-center gap-2">
-            <Badge variant="outline" className={cn('text-[9px] px-2 py-0.5', categoryColors[detectedFormat.category])}>
-              {detectedFormat.category.toUpperCase()}
-            </Badge>
+            <InsightTooltip hint={FEATURE_TOOLTIPS['source-format']} side="left">
+              <Badge variant="outline" className={cn('text-[9px] px-2 py-0.5 cursor-help', categoryColors[detectedFormat.category])}>
+                {detectedFormat.category.toUpperCase()}
+              </Badge>
+            </InsightTooltip>
             <div className="flex items-center gap-1.5 text-success">
               <CheckCircle className="w-3.5 h-3.5" />
               <span className="text-[10px] font-medium">Ready</span>
