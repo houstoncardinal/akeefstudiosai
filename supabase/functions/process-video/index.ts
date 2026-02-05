@@ -1,22 +1,11 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
-const ALLOWED_ORIGIN_PATTERNS = [
-  /^http:\/\/localhost:\d+$/,           // Local dev
-  /^https:\/\/.*\.lovable\.app$/,       // Lovable preview deployments
-  /^https:\/\/.*\.supabase\.co$/,       // Supabase hosted
-  /^https:\/\/.*\.netlify\.app$/,       // Netlify deployments
-];
-
-function getCorsHeaders(req: Request) {
-  const origin = req.headers.get("Origin") || "";
-  const isAllowed = ALLOWED_ORIGIN_PATTERNS.some(p => p.test(origin));
-  return {
-    "Access-Control-Allow-Origin": isAllowed ? origin : "",
-    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-    "Access-Control-Allow-Methods": "POST, OPTIONS",
-  };
-}
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+};
 
 // ============================================
 // AKEEF STUDIO AI - UNIVERSAL VIDEO PROCESSING ENGINE
@@ -431,8 +420,6 @@ async function callAIWithRetry(
 }
 
 serve(async (req) => {
-  const corsHeaders = getCorsHeaders(req);
-
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
@@ -646,7 +633,6 @@ Apply the specified style, effects, and AI tools to generate a complete edited t
     );
 
   } catch (error) {
-    const corsHeaders = getCorsHeaders(req);
     console.error("Unexpected error:", error);
     return new Response(
       JSON.stringify({ success: false, error: "An unexpected error occurred. Please try again." }),
