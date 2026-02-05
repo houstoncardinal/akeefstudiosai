@@ -1,14 +1,35 @@
- import { useState, useEffect, useMemo } from 'react';
+ import { useState, useEffect } from 'react';
  import { supabase } from '@/integrations/supabase/client';
  import { useToast } from '@/hooks/use-toast';
- import { EDIT_PRESETS, AI_MODELS } from '@/lib/presets';
- import Header from '@/components/pro/Header';
- import UploadPanel from '@/components/pro/UploadPanel';
- import PresetPanel from '@/components/pro/PresetPanel';
- import ControlPanel from '@/components/pro/ControlPanel';
- import OutputPanel from '@/components/pro/OutputPanel';
- import TimelineVisualizer from '@/components/pro/TimelineVisualizer';
- import ProcessingOverlay from '@/components/pro/ProcessingOverlay';
+ import { 
+   STYLE_PRESETS, 
+   COLOR_GRADES, 
+   EFFECT_PRESETS, 
+   GRAPHICS_TEMPLATES,
+   VERSION_TYPES,
+   EXPORT_FORMATS,
+   AI_MODELS 
+ } from '@/lib/presets';
+ import Header from '@/components/studio/Header';
+ import SourcePanel from '@/components/studio/SourcePanel';
+ import TimelinePanel from '@/components/studio/TimelinePanel';
+ import StylePanel from '@/components/studio/StylePanel';
+ import ColorPanel from '@/components/studio/ColorPanel';
+ import EffectsPanel from '@/components/studio/EffectsPanel';
+ import GraphicsPanel from '@/components/studio/GraphicsPanel';
+ import VersionPanel from '@/components/studio/VersionPanel';
+ import ExportPanel from '@/components/studio/ExportPanel';
+ import OutputPanel from '@/components/studio/OutputPanel';
+ import ProcessingOverlay from '@/components/studio/ProcessingOverlay';
+ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+ import { 
+   Palette, 
+   Sparkles, 
+   Type, 
+   Layers, 
+   Download,
+   Wand2
+ } from 'lucide-react';
  
  type ProcessingState = 'idle' | 'uploading' | 'processing' | 'completed' | 'failed';
  
@@ -25,12 +46,22 @@
    completed_at: string | null;
  }
  
- // Generate session ID for rate limiting
+ interface EditConfig {
+   style: string;
+   colorGrade: string;
+   effectPreset: string;
+   graphics: string[];
+   versions: string[];
+   exportFormat: string;
+   model: string;
+   customRules: string;
+ }
+ 
  const getSessionId = () => {
-   let sessionId = localStorage.getItem('fcpxml_session_id');
+   let sessionId = localStorage.getItem('akeef_session_id');
    if (!sessionId) {
      sessionId = crypto.randomUUID();
-     localStorage.setItem('fcpxml_session_id', sessionId);
+     localStorage.setItem('akeef_session_id', sessionId);
    }
    return sessionId;
  };
@@ -38,19 +69,26 @@
  export default function Index() {
    const { toast } = useToast();
  
-   // Form state
+   // File state
    const [file, setFile] = useState<File | null>(null);
    const [fileContent, setFileContent] = useState<string | null>(null);
-   const [model, setModel] = useState(AI_MODELS[0].id);
-   const [preset, setPreset] = useState(EDIT_PRESETS[0].id);
-   const [styleRules, setStyleRules] = useState(EDIT_PRESETS[0].defaultRules);
+ 
+   // Edit configuration
+   const [config, setConfig] = useState<EditConfig>({
+     style: STYLE_PRESETS[0].id,
+     colorGrade: COLOR_GRADES[0].id,
+     effectPreset: EFFECT_PRESETS[1].id, // Cinematic as default
+     graphics: [],
+     versions: ['rough_cut'],
+     exportFormat: EXPORT_FORMATS[0].id,
+     model: AI_MODELS[0].id,
+     customRules: STYLE_PRESETS[0].defaultRules,
+   });
  
    // Processing state
    const [processingState, setProcessingState] = useState<ProcessingState>('idle');
    const [progress, setProgress] = useState(0);
    const [statusMessage, setStatusMessage] = useState('');
- 
-   // Output state
    const [currentJob, setCurrentJob] = useState<JobData | null>(null);
    const [outputXml, setOutputXml] = useState<string | null>(null);
  
@@ -63,60 +101,114 @@
      }
    }, [file]);
  
-   // Update style rules when preset changes
+   // Update custom rules when style changes
    useEffect(() => {
-     const selectedPreset = EDIT_PRESETS.find(p => p.id === preset);
-     if (selectedPreset) {
-       setStyleRules(selectedPreset.defaultRules);
+     const selectedStyle = STYLE_PRESETS.find(p => p.id === config.style);
+     if (selectedStyle) {
+       setConfig(prev => ({ ...prev, customRules: selectedStyle.defaultRules }));
      }
-   }, [preset]);
+   }, [config.style]);
+ 
+   const updateConfig = (updates: Partial<EditConfig>) => {
+     setConfig(prev => ({ ...prev, ...updates }));
+   };
+ 
+   const buildFullPrompt = () => {
+     const style = STYLE_PRESETS.find(s => s.id === config.style);
+     const colorGrade = COLOR_GRADES.find(c => c.id === config.colorGrade);
+     const effects = EFFECT_PRESETS.find(e => e.id === config.effectPreset);
+     const graphics = config.graphics.map(g => GRAPHICS_TEMPLATES.find(t => t.id === g)).filter(Boolean);
+     const versions = config.versions.map(v => VERSION_TYPES.find(t => t.id === v)).filter(Boolean);
+ 
+     return `
+ === AKEEF STUDIO AI - ADVANCED EDIT CONFIGURATION ===
+ 
+ PRIMARY STYLE: ${style?.name || 'Custom'}
+ ${config.customRules}
+ 
+ === COLOR GRADING ===
+ LUT: ${colorGrade?.name || 'None'}
+ ${colorGrade ? `
+ - Contrast: ${colorGrade.settings.contrast}
+ - Saturation: ${colorGrade.settings.saturation}
+ - Temperature: ${colorGrade.settings.temperature}K shift
+ - Shadows: ${colorGrade.settings.shadows}
+ - Highlights: ${colorGrade.settings.highlights}
+ ` : ''}
+ 
+ === EFFECTS & TRANSITIONS ===
+ Mode: ${effects?.name || 'None'}
+ Intensity: ${effects?.intensity || 'moderate'}
+ ${effects ? `
+ Transitions to use: ${effects.transitions.join(', ')}
+ Motion effects: ${effects.motionEffects.join(', ')}
+ ` : ''}
+ 
+ === GRAPHICS & TITLES ===
+ ${graphics.length > 0 ? graphics.map(g => `- ${g?.name}: ${g?.description}`).join('\n') : 'No graphics selected'}
+ 
+ === VERSION OUTPUTS ===
+ ${versions.map(v => `- ${v?.name} (${v?.duration}, ${v?.aspectRatio})`).join('\n')}
+ 
+ Apply all these settings to create a professional edit. Output valid FCPXML only.
+ `;
+   };
  
    const handleGenerate = async () => {
      if (!file || !fileContent) return;
  
      try {
        setProcessingState('uploading');
-       setProgress(15);
+       setProgress(10);
        setCurrentJob(null);
        setOutputXml(null);
-       setStatusMessage('Preparing your timeline...');
+       setStatusMessage('Analyzing source media...');
  
-       // Simulate upload progress
        const progressInterval = setInterval(() => {
-         setProgress(p => Math.min(p + 5, 40));
+         setProgress(p => Math.min(p + 3, 35));
        }, 200);
  
-       setProcessingState('processing');
-       setStatusMessage('AI is analyzing clips and applying edits...');
-       setProgress(45);
+       setTimeout(() => {
+         setStatusMessage('Applying style and color grading...');
+       }, 1000);
  
+       setProcessingState('processing');
+       setProgress(40);
        clearInterval(progressInterval);
  
-       // Start progress simulation for AI processing
        const aiProgressInterval = setInterval(() => {
-         setProgress(p => Math.min(p + 2, 90));
-       }, 500);
+         setProgress(p => {
+           if (p < 60) return p + 2;
+           if (p < 80) return p + 1;
+           return Math.min(p + 0.5, 92);
+         });
+       }, 400);
+ 
+       setTimeout(() => setStatusMessage('Generating transitions and effects...'), 2000);
+       setTimeout(() => setStatusMessage('Building timeline structure...'), 4000);
+       setTimeout(() => setStatusMessage('Rendering version outputs...'), 6000);
  
        const { data: fnData, error: fnError } = await supabase.functions.invoke('process-fcpxml', {
          body: {
            fileContent,
            fileName: file.name,
-           preset,
-           model,
-           styleRules,
+           preset: config.style,
+           model: config.model,
+           styleRules: buildFullPrompt(),
            sessionId: getSessionId(),
+           advancedConfig: {
+             colorGrade: config.colorGrade,
+             effectPreset: config.effectPreset,
+             graphics: config.graphics,
+             versions: config.versions,
+             exportFormat: config.exportFormat,
+           },
          },
        });
  
        clearInterval(aiProgressInterval);
  
        if (fnError) {
-         if (fnError.message?.includes('429') || fnError.message?.includes('rate limit')) {
-           throw new Error('Rate limit exceeded. Max 10 jobs per hour. Please wait.');
-         }
-         if (fnError.message?.includes('402')) {
-           throw new Error('AI service temporarily unavailable.');
-         }
          throw new Error(fnError.message);
        }
  
@@ -126,13 +218,13 @@
  
        setProgress(100);
        setProcessingState('completed');
-       setStatusMessage('Your AI rough cut is ready!');
+       setStatusMessage('All versions rendered successfully!');
        setCurrentJob(fnData.job);
        setOutputXml(fnData.outputXml);
  
        toast({ 
          title: '✨ Export Complete', 
-         description: 'Your AI-edited FCPXML is ready for download.' 
+         description: `${config.versions.length} version(s) rendered with ${STYLE_PRESETS.find(s => s.id === config.style)?.name} style.`
        });
  
      } catch (err) {
@@ -160,67 +252,143 @@
    const showOutput = processingState === 'completed' && currentJob && outputXml;
  
    return (
-     <div className="min-h-screen bg-background noise-overlay">
+     <div className="min-h-screen bg-background">
        <Header />
        
-       <main className="container mx-auto px-4 py-6">
-         {/* Main grid layout */}
-         <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-           {/* Left column - Upload & Timeline */}
-           <div className="lg:col-span-7 space-y-4">
-             <UploadPanel 
-               file={file} 
-               onFileChange={setFile} 
-               disabled={isProcessing}
-               fileContent={fileContent}
-             />
-             
-             {fileContent && (
-               <TimelineVisualizer 
-                 xmlContent={fileContent} 
+       <main className="h-[calc(100vh-56px)] flex flex-col overflow-hidden">
+         {/* Top section - Source & Timeline */}
+         <div className="flex-shrink-0 border-b border-border/40">
+           <div className="container mx-auto px-4 py-4">
+             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+               <SourcePanel 
+                 file={file}
+                 onFileChange={setFile}
+                 fileContent={fileContent}
+                 disabled={isProcessing}
+               />
+               <TimelinePanel 
+                 fileContent={fileContent}
                  isProcessing={isProcessing}
                />
-             )}
-             
-             {showOutput && (
-               <OutputPanel 
-                 job={currentJob!} 
-                 outputXml={outputXml!}
-                 onNewEdit={handleReset}
-               />
-             )}
+             </div>
            </div>
+         </div>
  
-           {/* Right column - Controls */}
-           <div className="lg:col-span-5 space-y-4">
-             <PresetPanel
-               preset={preset}
-               onPresetChange={setPreset}
-               disabled={isProcessing}
-             />
-             
-             <ControlPanel
-               model={model}
-               onModelChange={setModel}
-               styleRules={styleRules}
-               onStyleRulesChange={setStyleRules}
-               onGenerate={handleGenerate}
-               canGenerate={canGenerate}
-               isProcessing={isProcessing}
-               processingState={processingState}
-               progress={progress}
-               statusMessage={statusMessage}
-             />
+         {/* Bottom section - Tools & Output */}
+         <div className="flex-1 overflow-hidden">
+           <div className="container mx-auto px-4 py-4 h-full">
+             <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 h-full">
+               {/* Left - Tool Tabs */}
+               <div className="lg:col-span-8 overflow-hidden">
+                 <Tabs defaultValue="style" className="h-full flex flex-col">
+                   <TabsList className="w-full justify-start bg-muted/30 border border-border/50 p-1 h-auto flex-wrap gap-1">
+                     <TabsTrigger value="style" className="gap-1.5 text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+                       <Wand2 className="w-3.5 h-3.5" />
+                       Style
+                     </TabsTrigger>
+                     <TabsTrigger value="color" className="gap-1.5 text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+                       <Palette className="w-3.5 h-3.5" />
+                       Color
+                     </TabsTrigger>
+                     <TabsTrigger value="effects" className="gap-1.5 text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+                       <Sparkles className="w-3.5 h-3.5" />
+                       Effects
+                     </TabsTrigger>
+                     <TabsTrigger value="graphics" className="gap-1.5 text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+                       <Type className="w-3.5 h-3.5" />
+                       Graphics
+                     </TabsTrigger>
+                     <TabsTrigger value="versions" className="gap-1.5 text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+                       <Layers className="w-3.5 h-3.5" />
+                       Versions
+                     </TabsTrigger>
+                     <TabsTrigger value="export" className="gap-1.5 text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+                       <Download className="w-3.5 h-3.5" />
+                       Export
+                     </TabsTrigger>
+                   </TabsList>
+ 
+                   <div className="flex-1 overflow-auto mt-4">
+                     <TabsContent value="style" className="m-0 h-full">
+                       <StylePanel
+                         style={config.style}
+                         onStyleChange={(style) => updateConfig({ style })}
+                         customRules={config.customRules}
+                         onCustomRulesChange={(customRules) => updateConfig({ customRules })}
+                         model={config.model}
+                         onModelChange={(model) => updateConfig({ model })}
+                         disabled={isProcessing}
+                       />
+                     </TabsContent>
+ 
+                     <TabsContent value="color" className="m-0 h-full">
+                       <ColorPanel
+                         colorGrade={config.colorGrade}
+                         onColorGradeChange={(colorGrade) => updateConfig({ colorGrade })}
+                         disabled={isProcessing}
+                       />
+                     </TabsContent>
+ 
+                     <TabsContent value="effects" className="m-0 h-full">
+                       <EffectsPanel
+                         effectPreset={config.effectPreset}
+                         onEffectPresetChange={(effectPreset) => updateConfig({ effectPreset })}
+                         disabled={isProcessing}
+                       />
+                     </TabsContent>
+ 
+                     <TabsContent value="graphics" className="m-0 h-full">
+                       <GraphicsPanel
+                         selectedGraphics={config.graphics}
+                         onGraphicsChange={(graphics) => updateConfig({ graphics })}
+                         disabled={isProcessing}
+                       />
+                     </TabsContent>
+ 
+                     <TabsContent value="versions" className="m-0 h-full">
+                       <VersionPanel
+                         selectedVersions={config.versions}
+                         onVersionsChange={(versions) => updateConfig({ versions })}
+                         disabled={isProcessing}
+                       />
+                     </TabsContent>
+ 
+                     <TabsContent value="export" className="m-0 h-full">
+                       <ExportPanel
+                         exportFormat={config.exportFormat}
+                         onExportFormatChange={(exportFormat) => updateConfig({ exportFormat })}
+                         onGenerate={handleGenerate}
+                         canGenerate={canGenerate}
+                         isProcessing={isProcessing}
+                         progress={progress}
+                         statusMessage={statusMessage}
+                         processingState={processingState}
+                       />
+                     </TabsContent>
+                   </div>
+                 </Tabs>
+               </div>
+ 
+               {/* Right - Output */}
+               <div className="lg:col-span-4 overflow-auto">
+                 <OutputPanel
+                   job={currentJob}
+                   outputXml={outputXml}
+                   onNewEdit={handleReset}
+                   config={config}
+                   showOutput={showOutput}
+                 />
+               </div>
+             </div>
            </div>
          </div>
        </main>
  
-       {/* Processing overlay */}
        {isProcessing && (
          <ProcessingOverlay 
            progress={progress} 
            message={statusMessage}
-           preset={preset}
+           config={config}
          />
        )}
      </div>
