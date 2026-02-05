@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { CINEMATIC_LUTS, type CinematicLUT } from '@/lib/presets';
 import { cn } from '@/lib/utils';
-import { CheckCircle, Film, Sparkles, Camera, Tv, Music, RotateCcw, Undo2, Redo2, HelpCircle, Upload, FolderOpen } from 'lucide-react';
+import { CheckCircle, Film, Sparkles, Camera, Tv, Music, RotateCcw, Undo2, Redo2, HelpCircle, Upload, FolderOpen, Eye } from 'lucide-react';
 import { Slider } from '@/components/ui/slider';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
@@ -12,6 +12,7 @@ import ColorWheel from '@/components/studio/ColorWheel';
 import InsightTooltip, { FEATURE_TOOLTIPS } from './InsightTooltip';
 import AutoShowTooltip from './AutoShowTooltip';
 import CustomLUTManager from './CustomLUTManager';
+import { LUTCardWithPreview, useFrameCaptureContext } from './LUTPreviewSystem';
 // Legacy compatibility: alias old ColorSettings to the richer FullColorSettings
 export type ColorSettings = FullColorSettings;
 
@@ -59,6 +60,7 @@ interface ColorPanelProps {
   onUndo?: () => void;
   onRedo?: () => void;
   disabled?: boolean;
+  currentFrame?: string | null; // Current video frame for LUT preview
 }
 
 const thumbnailMap: Record<string, string> = {
@@ -174,8 +176,17 @@ export default function ColorPanel({
   onUndo,
   onRedo,
   disabled,
+  currentFrame,
 }: ColorPanelProps) {
   const selectedLUT = CINEMATIC_LUTS.find(l => l.id === colorGrade);
+  const { setCurrentFrame } = useFrameCaptureContext();
+  
+  // Update context with current frame
+  useEffect(() => {
+    if (currentFrame) {
+      setCurrentFrame(currentFrame);
+    }
+  }, [currentFrame, setCurrentFrame]);
 
   const [customSettings, setCustomSettings] = useState<FullColorSettings | null>(settings ?? null);
 
@@ -242,13 +253,21 @@ export default function ColorPanel({
     const liveThumbnail = lutThumbnails?.get(lut.id);
     const thumbnail = liveThumbnail || thumbnailMap[lut.thumbnail];
 
-    return (
+    const lutSettings = {
+      contrast: lut.settings.contrast,
+      saturation: lut.settings.saturation,
+      temperature: lut.settings.temperature,
+      tint: lut.settings.tint,
+      shadows: lut.settings.shadows,
+      highlights: lut.settings.highlights,
+    };
+
+    const cardContent = (
       <button
-        key={lut.id}
         onClick={() => !disabled && onColorGradeChange(lut.id)}
         disabled={disabled}
         className={cn(
-          'group relative rounded-xl overflow-hidden border-2 transition-all duration-200',
+          'group relative rounded-xl overflow-hidden border-2 transition-all duration-200 w-full',
           active
             ? 'border-primary ring-2 ring-primary/30 scale-[1.02]'
             : 'border-transparent hover:border-primary/40 hover:scale-[1.01]'
@@ -267,7 +286,18 @@ export default function ColorPanel({
           )}
           {/* Overlay gradient */}
           <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
-          {liveThumbnail && (
+          
+          {/* Preview indicator on hover */}
+          {currentFrame && (
+            <div className="absolute top-2 left-2 opacity-0 group-hover:opacity-100 transition-opacity">
+              <Badge variant="secondary" className="text-[7px] bg-primary/80 text-primary-foreground border-0 backdrop-blur-sm px-1.5 py-0.5 gap-1">
+                <Eye className="w-2.5 h-2.5" />
+                Preview
+              </Badge>
+            </div>
+          )}
+          
+          {liveThumbnail && !currentFrame && (
             <div className="absolute top-2 left-2">
               <Badge variant="secondary" className="text-[7px] bg-black/50 text-white border-0 backdrop-blur-sm px-1 py-0">
                 LIVE
@@ -312,6 +342,21 @@ export default function ColorPanel({
         </div>
       </button>
     );
+
+    // Wrap with preview system if we have a current frame
+    if (currentFrame) {
+      return (
+        <LUTCardWithPreview
+          key={lut.id}
+          lutSettings={lutSettings}
+          lutName={lut.name}
+        >
+          {cardContent}
+        </LUTCardWithPreview>
+      );
+    }
+
+    return <div key={lut.id}>{cardContent}</div>;
   };
 
   const sliderDefs = [
