@@ -890,6 +890,24 @@ export default function EditingCanvas({
                         }}
                         onClick={(e) => handleClipClick(clip.id, e)}
                       >
+                        {/* Effect type indicator strips - LEFT EDGE */}
+                        {clip.effects.length > 0 && !track.collapsed && (
+                          <div className="absolute left-0 top-0 bottom-0 w-1 z-20 flex flex-col">
+                            {clip.effects.some(e => e.type === 'color') && (
+                              <div className="flex-1 bg-amber-500" title="LUT/Color Grade Applied" />
+                            )}
+                            {clip.effects.some(e => e.type === 'filter') && (
+                              <div className="flex-1 bg-cyan-500" title="Effect Applied" />
+                            )}
+                            {clip.effects.some(e => e.type === 'transition') && (
+                              <div className="flex-1 bg-purple-500" title="Transition Applied" />
+                            )}
+                            {clip.effects.some(e => e.type === 'speed') && (
+                              <div className="flex-1 bg-blue-500" title="Speed Effect" />
+                            )}
+                          </div>
+                        )}
+
                         {/* Video thumbnail background for video clips */}
                         {clip.type === 'video' && videoThumbnail && !track.collapsed && (
                           <div className="absolute inset-0 overflow-hidden">
@@ -912,42 +930,65 @@ export default function EditingCanvas({
                             clip.type === 'image' && 'bg-gradient-to-b from-accent/25 to-accent/15',
                           )} />
                         )}
+
+                        {/* TOP STRIP - Color Grade/LUT indicator */}
+                        {clip.effects.some(e => e.type === 'color') && !track.collapsed && (
+                          <div className="absolute top-0 left-0 right-0 h-4 bg-gradient-to-r from-amber-500/90 to-amber-600/90 z-10 flex items-center px-1.5 gap-1">
+                            <Palette className="w-2.5 h-2.5 text-white" />
+                            <span className="text-[8px] font-bold text-white truncate">
+                              {clip.effects.find(e => e.type === 'color')?.name}
+                            </span>
+                          </div>
+                        )}
                         
-                        {/* Clip header - positioned above background */}
-                        <div className="relative z-10 flex items-center gap-1 px-1.5 py-0.5 bg-black/20 backdrop-blur-sm">
+                        {/* Clip header - positioned below LUT strip if present */}
+                        <div className={cn(
+                          "relative z-10 flex items-center gap-1 px-1.5 py-0.5 bg-black/30 backdrop-blur-sm",
+                          clip.effects.some(e => e.type === 'color') && !track.collapsed && "mt-4"
+                        )}>
                           <GripVertical className="w-2.5 h-2.5 text-white/60 opacity-0 group-hover:opacity-100 cursor-grab flex-shrink-0" />
-                          <span className="text-[9px] font-medium text-white truncate flex-1 drop-shadow-sm">{clip.name}</span>
+                          <span className="text-[9px] font-semibold text-white truncate flex-1 drop-shadow-sm">{clip.name}</span>
                           {clip.speed !== 1 && (
-                            <Badge variant="outline" className="text-[7px] px-1 py-0 h-3 bg-black/30 text-white border-white/30">{clip.speed}x</Badge>
+                            <Badge variant="outline" className="text-[7px] px-1 py-0 h-3 bg-blue-500/80 text-white border-blue-400">{clip.speed}x</Badge>
                           )}
                           {clip.locked && <Lock className="w-2.5 h-2.5 text-warning flex-shrink-0" />}
                           {clip.muted && <VolumeX className="w-2.5 h-2.5 text-destructive flex-shrink-0" />}
                         </div>
                         
-                        {/* Effect badges - positioned above background */}
+                        {/* Effect badges row - more prominent */}
                         {!track.collapsed && clip.effects.length > 0 && (
-                          <div className="relative z-10 flex flex-wrap gap-0.5 px-1.5 py-1">
-                            {clip.effects.slice(0, 3).map((effect) => {
+                          <div className="relative z-10 flex flex-wrap gap-1 px-1.5 py-1">
+                            {clip.effects.filter(e => e.type !== 'color').slice(0, 4).map((effect) => {
                               const Icon = effect.icon;
                               return (
                                 <Tooltip key={effect.id}>
                                   <TooltipTrigger asChild>
-                                    <div className={cn("flex items-center gap-0.5 px-1 py-0.5 rounded text-[8px] font-medium bg-black/30 backdrop-blur-sm", effect.color)}>
+                                    <div className={cn(
+                                      "flex items-center gap-1 px-1.5 py-0.5 rounded-sm text-[8px] font-bold shadow-sm",
+                                      effect.type === 'filter' && 'bg-cyan-500/90 text-white',
+                                      effect.type === 'transition' && 'bg-purple-500/90 text-white',
+                                      effect.type === 'speed' && 'bg-blue-500/90 text-white',
+                                      effect.type === 'audio' && 'bg-green-500/90 text-white',
+                                      effect.type === 'graphics' && 'bg-pink-500/90 text-white',
+                                    )}>
                                       <Icon className="w-2.5 h-2.5" />
+                                      <span className="max-w-[50px] truncate">{effect.name}</span>
                                     </div>
                                   </TooltipTrigger>
                                   <TooltipContent side="top" className="text-xs">
-                                    <div className="flex items-center gap-1">
-                                      <Icon className="w-3 h-3" />
-                                      <span className="capitalize">{effect.type}:</span>
+                                    <div className="flex items-center gap-1.5">
+                                      <Icon className="w-3.5 h-3.5" />
+                                      <span className="capitalize font-medium">{effect.type}:</span>
                                       <span>{effect.name}</span>
                                     </div>
                                   </TooltipContent>
                                 </Tooltip>
                               );
                             })}
-                            {clip.effects.length > 3 && (
-                              <Badge variant="secondary" className="text-[8px] px-1 py-0 h-4 bg-black/30 text-white">+{clip.effects.length - 3}</Badge>
+                            {clip.effects.filter(e => e.type !== 'color').length > 4 && (
+                              <Badge className="text-[8px] px-1 py-0 h-4 bg-white/20 text-white border-0">
+                                +{clip.effects.filter(e => e.type !== 'color').length - 4}
+                              </Badge>
                             )}
                           </div>
                         )}
@@ -1012,7 +1053,7 @@ export default function EditingCanvas({
         <ScrollBar orientation="horizontal" />
       </ScrollArea>
       
-      {/* ─── Footer status bar ─── */}
+      {/* ─── Footer status bar with effect legend ─── */}
       <div className="flex items-center justify-between px-3 py-1.5 border-t border-border/40 bg-muted/20 text-[10px] text-muted-foreground flex-shrink-0">
         <div className="flex items-center gap-3">
           <span>{selectedClips.length > 0 ? `${selectedClips.length} selected` : 'No selection'}</span>
@@ -1027,7 +1068,26 @@ export default function EditingCanvas({
             </>
           )}
         </div>
-        <div className="flex items-center gap-2">
+        
+        {/* Effect type legend */}
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1.5">
+            <div className="w-2 h-2 rounded-sm bg-amber-500" />
+            <span>LUT</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <div className="w-2 h-2 rounded-sm bg-cyan-500" />
+            <span>Effect</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <div className="w-2 h-2 rounded-sm bg-purple-500" />
+            <span>Transition</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <div className="w-2 h-2 rounded-sm bg-blue-500" />
+            <span>Speed</span>
+          </div>
+          <span className="text-border">|</span>
           <span className="font-mono">{formatTimecode(totalDuration)} total</span>
           {snapEnabled && <Badge variant="outline" className="text-[8px] gap-1"><Magnet className="w-2 h-2" />Snap</Badge>}
           {rippleEnabled && <Badge variant="outline" className="text-[8px] gap-1"><GitBranch className="w-2 h-2" />Ripple</Badge>}
