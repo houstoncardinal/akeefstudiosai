@@ -4,6 +4,7 @@ import ThemeSelector from './ThemeSelector';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import InsightTooltip, { FEATURE_TOOLTIPS } from './InsightTooltip';
 
 export default function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -61,18 +62,20 @@ export default function Header() {
           </div>
           
           {/* Keyboard shortcuts hint - desktop only */}
-          <Button
-            variant="ghost"
-            size="sm"
-            className="hidden lg:flex h-8 gap-1.5 text-xs text-muted-foreground hover:text-foreground"
-            onClick={() => {
-              const event = new KeyboardEvent('keydown', { key: '?', shiftKey: true });
-              window.dispatchEvent(event);
-            }}
-          >
-            <Keyboard className="w-3.5 h-3.5" />
-            <span className="text-[10px]">⇧?</span>
-          </Button>
+          <InsightTooltip hint={FEATURE_TOOLTIPS['keyboard-shortcuts']} side="bottom">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="hidden lg:flex h-8 gap-1.5 text-xs text-muted-foreground hover:text-foreground"
+              onClick={() => {
+                const event = new KeyboardEvent('keydown', { key: '?', shiftKey: true });
+                window.dispatchEvent(event);
+              }}
+            >
+              <Keyboard className="w-3.5 h-3.5" />
+              <span className="text-[10px]">⇧?</span>
+            </Button>
+          </InsightTooltip>
 
           <ThemeSelector />
 

@@ -1,7 +1,8 @@
- import { STYLE_PRESETS, AI_MODELS } from '@/lib/presets';
- import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
- import { cn } from '@/lib/utils';
- import { Film, Music, Smartphone, Briefcase, Video, Cpu, Sparkles, Zap, Crown } from 'lucide-react';
+import { STYLE_PRESETS, AI_MODELS } from '@/lib/presets';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { cn } from '@/lib/utils';
+import { Film, Music, Smartphone, Briefcase, Video, Cpu, Sparkles, Zap, Crown, HelpCircle } from 'lucide-react';
+import InsightTooltip, { FEATURE_TOOLTIPS } from './InsightTooltip';
  
  interface StylePanelProps {
    style: string;
@@ -36,11 +37,16 @@ export default function StylePanel({ style, onStyleChange, model, onModelChange,
  
    return (
      <div className="space-y-4">
-       {/* Style presets */}
-       <div className="panel">
-         <div className="panel-header">
-           <span className="panel-title">Style Presets</span>
-         </div>
+      {/* Style presets */}
+      <div className="panel">
+        <div className="panel-header">
+          <div className="flex items-center gap-2">
+            <span className="panel-title">Style Presets</span>
+            <InsightTooltip hint={FEATURE_TOOLTIPS['style-presets']} side="right">
+              <HelpCircle className="w-3 h-3 text-muted-foreground hover:text-primary cursor-help transition-colors" />
+            </InsightTooltip>
+          </div>
+        </div>
          <div className="p-3 grid grid-cols-2 sm:grid-cols-3 gap-2">
            {STYLE_PRESETS.map((preset) => {
              const Icon = icons[preset.id] || Film;
@@ -66,12 +72,17 @@ export default function StylePanel({ style, onStyleChange, model, onModelChange,
          </div>
        </div>
  
-       {/* AI Model */}
-       <div className="panel">
-         <div className="panel-header">
+      {/* AI Model */}
+      <div className="panel">
+        <div className="panel-header">
+          <div className="flex items-center gap-2">
             <span className="panel-title">AI Processing Engine</span>
-           <Cpu className="w-3.5 h-3.5 text-primary" />
-         </div>
+            <InsightTooltip hint={FEATURE_TOOLTIPS['ai-model']} side="right">
+              <HelpCircle className="w-3 h-3 text-muted-foreground hover:text-primary cursor-help transition-colors" />
+            </InsightTooltip>
+          </div>
+          <Cpu className="w-3.5 h-3.5 text-primary" />
+        </div>
          <div className="p-3">
             {/* Provider badges */}
             <div className="flex gap-2 mb-3">

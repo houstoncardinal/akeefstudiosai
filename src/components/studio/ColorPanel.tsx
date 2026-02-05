@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { CINEMATIC_LUTS, type CinematicLUT } from '@/lib/presets';
 import { cn } from '@/lib/utils';
-import { CheckCircle, Film, Sparkles, Camera, Tv, Music, RotateCcw, Undo2, Redo2 } from 'lucide-react';
+import { CheckCircle, Film, Sparkles, Camera, Tv, Music, RotateCcw, Undo2, Redo2, HelpCircle } from 'lucide-react';
 import { Slider } from '@/components/ui/slider';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { type FullColorSettings } from '@/lib/webgl/WebGLRenderer';
 import ColorWheel from '@/components/studio/ColorWheel';
+import InsightTooltip, { FEATURE_TOOLTIPS } from './InsightTooltip';
 
 // Legacy compatibility: alias old ColorSettings to the richer FullColorSettings
 export type ColorSettings = FullColorSettings;
@@ -288,6 +289,9 @@ export default function ColorPanel({
           <div className="flex items-center gap-2">
             <Film className="w-4 h-4 text-primary" />
             <span className="panel-title">Cinematic LUT Library</span>
+            <InsightTooltip hint={FEATURE_TOOLTIPS['color-lut']} side="right">
+              <HelpCircle className="w-3 h-3 text-muted-foreground hover:text-primary cursor-help transition-colors" />
+            </InsightTooltip>
           </div>
           <Badge variant="outline" className="text-[9px]">
             {CINEMATIC_LUTS.length} Professional LUTs
@@ -334,6 +338,9 @@ export default function ColorPanel({
             <div className="flex items-center gap-2">
               <Sparkles className="w-3.5 h-3.5 text-accent" />
               <span className="panel-title">LUT Parameters</span>
+              <InsightTooltip hint={FEATURE_TOOLTIPS['color-wheels']} side="right">
+                <HelpCircle className="w-3 h-3 text-muted-foreground hover:text-primary cursor-help transition-colors" />
+              </InsightTooltip>
               {isCustomized && (
                 <Badge variant="outline" className="text-[8px] bg-accent/10 border-accent/30 text-accent">
                   Customized

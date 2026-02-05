@@ -1,4 +1,4 @@
-import { Download, Copy, Check, RotateCcw, FileCode, Sparkles, CheckCircle, FolderDown, Save } from 'lucide-react';
+import { Download, Copy, Check, RotateCcw, FileCode, Sparkles, CheckCircle, FolderDown, Save, HelpCircle, Info } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
@@ -6,6 +6,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useState } from 'react';
 import { EXPORT_FORMATS } from '@/lib/presets';
 import { type ExportRecord } from '@/hooks/useExportHistory';
+import InsightTooltip, { FEATURE_TOOLTIPS } from './InsightTooltip';
 
 interface JobData {
   id: string;
@@ -256,13 +257,15 @@ export default function OutputPanel({ job, outputXml, onNewEdit, config, showOut
         {/* Action buttons */}
         <div className="space-y-2">
           {/* Primary: Save As (choose location) */}
-          <Button
-            onClick={handleSaveAs}
-            className="w-full h-11 gap-2 text-xs font-semibold bg-gradient-to-r from-success to-primary hover:opacity-90"
-          >
-            <Save className="w-4 h-4" />
-            Save As... ({outputFilename})
-          </Button>
+          <InsightTooltip hint={FEATURE_TOOLTIPS['output-save']} side="top">
+            <Button
+              onClick={handleSaveAs}
+              className="w-full h-11 gap-2 text-xs font-semibold bg-gradient-to-r from-success to-primary hover:opacity-90"
+            >
+              <Save className="w-4 h-4" />
+              Save As... ({outputFilename})
+            </Button>
+          </InsightTooltip>
 
           {/* Secondary row */}
           <div className="grid grid-cols-2 gap-2">
