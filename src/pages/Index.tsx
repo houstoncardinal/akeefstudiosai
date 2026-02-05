@@ -10,6 +10,7 @@
    EXPORT_FORMATS,
    AI_MODELS 
  } from '@/lib/presets';
+import { VIDEO_FORMATS, type VideoFormat } from '@/lib/formats';
  import Header from '@/components/studio/Header';
  import SourcePanel from '@/components/studio/SourcePanel';
  import TimelinePanel from '@/components/studio/TimelinePanel';
@@ -21,15 +22,16 @@
  import ExportPanel from '@/components/studio/ExportPanel';
  import OutputPanel from '@/components/studio/OutputPanel';
  import ProcessingOverlay from '@/components/studio/ProcessingOverlay';
+import FormatToolsPanel from '@/components/studio/FormatToolsPanel';
  import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
  import { 
    Palette, 
    Sparkles, 
    Type, 
    Layers, 
-   Download,
    Wand2,
-   Zap
+  Zap,
+  Wrench
  } from 'lucide-react';
  
  type ProcessingState = 'idle' | 'uploading' | 'processing' | 'completed' | 'failed';
@@ -56,6 +58,7 @@
    exportFormat: string;
    model: string;
    customRules: string;
+  formatTools: string[];
  }
  
  const getSessionId = () => {
@@ -84,7 +87,11 @@
      exportFormat: EXPORT_FORMATS[0].id,
      model: AI_MODELS[0].id,
      customRules: STYLE_PRESETS[0].defaultRules,
+    formatTools: ['scene_detection', 'auto_color'],
    });
+  
+  // Detected format
+  const [detectedFormat, setDetectedFormat] = useState<VideoFormat | null>(null);
  
    // Processing state
    const [processingState, setProcessingState] = useState<ProcessingState>('idle');
@@ -96,9 +103,17 @@
    // Parse file when uploaded
    useEffect(() => {
      if (file) {
-       file.text().then(setFileContent);
+      // For timeline files, read as text
+      const ext = file.name.toLowerCase().split('.').pop();
+      if (ext === 'fcpxml' || ext === 'xml') {
+        file.text().then(setFileContent);
+      } else {
+        // For video files, we don't need to read the content
+        setFileContent(null);
+      }
      } else {
        setFileContent(null);
+      setDetectedFormat(null);
      }
    }, [file]);
  
@@ -114,15 +129,28 @@
      setConfig(prev => ({ ...prev, ...updates }));
    };
  
+
+  const handleFormatDetected = (format: VideoFormat | null) => {
+    setDetectedFormat(format);
+  };
+
    const buildFullPrompt = () => {
      const style = STYLE_PRESETS.find(s => s.id === config.style);
      const colorGrade = COLOR_GRADES.find(c => c.id === config.colorGrade);
      const effects = EFFECT_PRESETS.find(e => e.id === config.effectPreset);
      const graphics = config.graphics.map(g => GRAPHICS_TEMPLATES.find(t => t.id === g)).filter(Boolean);
      const versions = config.versions.map(v => VERSION_TYPES.find(t => t.id === v)).filter(Boolean);
+    const formatToolNames = config.formatTools.map(t => {
+      const tool = detectedFormat ? VIDEO_FORMATS.find(f => f.id === detectedFormat.id) : null;
+      return t;
+    });
  
      return `
  === AKEEF STUDIO AI - ADVANCED EDIT CONFIGURATION ===
+
+SOURCE FORMAT: ${detectedFormat?.name || 'Auto-detect'}
+CODEC: ${detectedFormat?.codec || 'Various'}
+CATEGORY: ${detectedFormat?.category || 'Unknown'}
  
  PRIMARY STYLE: ${style?.name || 'Custom'}
  ${config.customRules}
@@ -145,6 +173,9 @@
  Motion effects: ${effects.motionEffects.join(', ')}
  ` : ''}
  
+=== AI PROCESSING TOOLS ===
+${config.formatTools.length > 0 ? config.formatTools.join(', ') : 'Standard processing'}
+
  === GRAPHICS & TITLES ===
  ${graphics.length > 0 ? graphics.map(g => `- ${g?.name}: ${g?.description}`).join('\n') : 'No graphics selected'}
  
@@ -156,7 +187,20 @@
    };
  
    const handleGenerate = async () => {
-     if (!file || !fileContent) return;
+    if (!file) return;
+    
+    // For video files, we generate an edit list / instructions
+    // For timeline files, we process the FCPXML
+    const isTimelineFile = detectedFormat?.category === 'timeline';
+    
+    if (isTimelineFile && !fileContent) {
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Could not read timeline file content',
+      });
+      return;
+    }
  
      try {
        setProcessingState('uploading');
@@ -189,20 +233,23 @@
        setTimeout(() => setStatusMessage('Building timeline structure...'), 4000);
        setTimeout(() => setStatusMessage('Rendering version outputs...'), 6000);
  
-       const { data: fnData, error: fnError } = await supabase.functions.invoke('process-fcpxml', {
+        const { data: fnData, error: fnError } = await supabase.functions.invoke('process-video', {
          body: {
-           fileContent,
+            fileContent: isTimelineFile ? fileContent : null,
            fileName: file.name,
            preset: config.style,
            model: config.model,
            styleRules: buildFullPrompt(),
            sessionId: getSessionId(),
+            fileType: detectedFormat?.id || 'unknown',
+            isVideoFile: !isTimelineFile,
            advancedConfig: {
              colorGrade: config.colorGrade,
              effectPreset: config.effectPreset,
              graphics: config.graphics,
              versions: config.versions,
              exportFormat: config.exportFormat,
+              formatTools: config.formatTools,
            },
          },
        });
@@ -266,10 +313,12 @@
                  onFileChange={setFile}
                  fileContent={fileContent}
                  disabled={isProcessing}
+                  onFormatDetected={handleFormatDetected}
                />
                <TimelinePanel 
                  fileContent={fileContent}
                  isProcessing={isProcessing}
+                  detectedFormat={detectedFormat}
                />
              </div>
            </div>
@@ -317,6 +366,13 @@
                     >
                       <Layers className="w-4 h-4" />
                        Versions
+                     </TabsTrigger>
+                    <TabsTrigger 
+                      value="tools" 
+                      className="gap-2 text-xs px-4 py-2 rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg data-[state=active]:shadow-primary/20 transition-all"
+                    >
+                      <Wrench className="w-4 h-4" />
+                       AI Tools
                      </TabsTrigger>
                     <TabsTrigger 
                       value="export" 
@@ -368,6 +424,15 @@
                        <VersionPanel
                          selectedVersions={config.versions}
                          onVersionsChange={(versions) => updateConfig({ versions })}
+                         disabled={isProcessing}
+                       />
+                     </TabsContent>
+                     
+                     <TabsContent value="tools" className="m-0 h-full">
+                       <FormatToolsPanel
+                         format={detectedFormat}
+                         selectedTools={config.formatTools}
+                         onToolsChange={(formatTools) => updateConfig({ formatTools })}
                          disabled={isProcessing}
                        />
                      </TabsContent>
