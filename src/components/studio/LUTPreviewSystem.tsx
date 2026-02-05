@@ -98,11 +98,12 @@ export function LUTPreviewThumbnail({
   size = 'md',
 }: LUTPreviewProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const originalCanvasRef = useRef<HTMLCanvasElement>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [previewReady, setPreviewReady] = useState(false);
 
   useEffect(() => {
-    if (!isHovered || !currentFrame || !canvasRef.current) {
+    if (!isHovered || !currentFrame || !canvasRef.current || !originalCanvasRef.current) {
       setPreviewReady(false);
       return;
     }
@@ -112,6 +113,16 @@ export function LUTPreviewThumbnail({
     const img = new Image();
     img.crossOrigin = 'anonymous';
     img.onload = () => {
+      // Draw original (left side)
+      if (originalCanvasRef.current) {
+        const origCtx = originalCanvasRef.current.getContext('2d');
+        if (origCtx) {
+          originalCanvasRef.current.width = img.width;
+          originalCanvasRef.current.height = img.height;
+          origCtx.drawImage(img, 0, 0);
+        }
+      }
+      // Draw LUT-applied (right side)
       if (canvasRef.current) {
         applyLUTToCanvas(img, canvasRef.current, lutSettings);
         setPreviewReady(true);
@@ -125,9 +136,9 @@ export function LUTPreviewThumbnail({
   }, [isHovered, currentFrame, lutSettings]);
 
   const sizeClasses = {
-    sm: 'w-24 h-14',
-    md: 'w-40 h-24',
-    lg: 'w-56 h-32',
+    sm: 'w-48 h-14',
+    md: 'w-64 h-20',
+    lg: 'w-80 h-24',
   };
 
   if (!isHovered) return null;
@@ -135,7 +146,7 @@ export function LUTPreviewThumbnail({
   return (
     <div
       className={cn(
-        'absolute z-50 rounded-lg overflow-hidden shadow-2xl border-2 border-primary/50',
+        'absolute z-50 rounded-lg overflow-hidden shadow-2xl border border-border/50',
         'bg-black animate-in fade-in-0 zoom-in-95 duration-200',
         sizeClasses[size]
       )}
@@ -147,19 +158,42 @@ export function LUTPreviewThumbnail({
       }}
     >
       {isProcessing && !previewReady && (
-        <div className="absolute inset-0 flex items-center justify-center bg-black/80">
+        <div className="absolute inset-0 flex items-center justify-center bg-black/80 z-10">
           <Loader2 className="w-4 h-4 animate-spin text-white/70" />
         </div>
       )}
-      <canvas
-        ref={canvasRef}
-        className={cn(
-          'w-full h-full object-cover transition-opacity',
-          previewReady ? 'opacity-100' : 'opacity-0'
-        )}
-      />
-      <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 to-transparent p-1.5">
-        <div className="flex items-center gap-1">
+      
+      {/* Split view container */}
+      <div className={cn(
+        'flex w-full h-full transition-opacity',
+        previewReady ? 'opacity-100' : 'opacity-0'
+      )}>
+        {/* Before (Original) */}
+        <div className="relative w-1/2 h-full overflow-hidden border-r border-white/20">
+          <canvas
+            ref={originalCanvasRef}
+            className="w-full h-full object-cover"
+          />
+          <span className="absolute bottom-1 left-1 text-[8px] font-bold text-white/80 bg-black/60 px-1 rounded">
+            BEFORE
+          </span>
+        </div>
+        
+        {/* After (LUT Applied) */}
+        <div className="relative w-1/2 h-full overflow-hidden">
+          <canvas
+            ref={canvasRef}
+            className="w-full h-full object-cover"
+          />
+          <span className="absolute bottom-1 right-1 text-[8px] font-bold text-primary bg-black/60 px-1 rounded">
+            AFTER
+          </span>
+        </div>
+      </div>
+      
+      {/* LUT name label */}
+      <div className="absolute top-0 left-0 right-0 bg-gradient-to-b from-black/70 to-transparent p-1">
+        <div className="flex items-center justify-center gap-1">
           <Eye className="w-2.5 h-2.5 text-primary" />
           <span className="text-[9px] font-medium text-white truncate">{lutName}</span>
         </div>
