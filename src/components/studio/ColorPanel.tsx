@@ -261,13 +261,14 @@ export default function ColorPanel({
   // Handle adding LUT to stack from library
   const handleAddToStack = (lutId: string) => {
     if (!onLutStackChange) return;
-    const newStack = [
+    const newStack: StackedLUT[] = [
       ...lutStack,
       {
         id: `${lutId}-${Date.now()}`,
         lutId,
         opacity: 100,
         enabled: true,
+        blendMode: 'normal',
       },
     ];
     onLutStackChange(newStack);
