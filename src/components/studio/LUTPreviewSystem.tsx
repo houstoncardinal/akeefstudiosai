@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback, createContext, useContext, ReactNode } from 'react';
 import { cn } from '@/lib/utils';
 import { Eye, Loader2 } from 'lucide-react';
 
@@ -253,7 +253,6 @@ export function useFrameCapture(videoRef: React.RefObject<HTMLVideoElement>) {
 }
 
 // Context provider for sharing frame across components
-import { createContext, useContext, ReactNode } from 'react';
 
 interface FrameCaptureContextType {
   currentFrame: string | null;
