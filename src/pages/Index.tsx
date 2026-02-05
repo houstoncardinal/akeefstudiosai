@@ -23,6 +23,7 @@ import { VIDEO_FORMATS, type VideoFormat } from '@/lib/formats';
  import OutputPanel from '@/components/studio/OutputPanel';
  import ProcessingOverlay from '@/components/studio/ProcessingOverlay';
 import FormatToolsPanel from '@/components/studio/FormatToolsPanel';
+import CustomRulesEditor from '@/components/studio/CustomRulesEditor';
  import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
  import { 
    Palette, 
@@ -390,8 +391,6 @@ ${config.formatTools.length > 0 ? config.formatTools.join(', ') : 'Standard proc
                        <StylePanel
                          style={config.style}
                          onStyleChange={(style) => updateConfig({ style })}
-                         customRules={config.customRules}
-                         onCustomRulesChange={(customRules) => updateConfig({ customRules })}
                          model={config.model}
                          onModelChange={(model) => updateConfig({ model })}
                          disabled={isProcessing}
@@ -457,6 +456,15 @@ ${config.formatTools.length > 0 ? config.formatTools.join(', ') : 'Standard proc
  
                {/* Right - Output */}
                <div className="lg:col-span-4 overflow-auto">
+                 {/* Prominent Custom Rules Editor */}
+                 <div className="mb-4">
+                   <CustomRulesEditor
+                     value={config.customRules}
+                     onChange={(customRules) => updateConfig({ customRules })}
+                     disabled={isProcessing}
+                   />
+                 </div>
+                 
                  <OutputPanel
                    job={currentJob}
                    outputXml={outputXml}

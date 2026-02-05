@@ -1,5 +1,4 @@
  import { STYLE_PRESETS, AI_MODELS } from '@/lib/presets';
- import { Textarea } from '@/components/ui/textarea';
  import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
  import { cn } from '@/lib/utils';
  import { Film, Music, Smartphone, Briefcase, Video, Cpu, Sparkles, Zap, Crown } from 'lucide-react';
@@ -7,8 +6,6 @@
  interface StylePanelProps {
    style: string;
    onStyleChange: (style: string) => void;
-   customRules: string;
-   onCustomRulesChange: (rules: string) => void;
    model: string;
    onModelChange: (model: string) => void;
    disabled?: boolean;
@@ -34,7 +31,7 @@
    premium: 'text-accent',
  };
  
- export default function StylePanel({ style, onStyleChange, customRules, onCustomRulesChange, model, onModelChange, disabled }: StylePanelProps) {
+export default function StylePanel({ style, onStyleChange, model, onModelChange, disabled }: StylePanelProps) {
    const selectedModel = AI_MODELS.find(m => m.id === model);
  
    return (
@@ -155,22 +152,6 @@
                 </p>
               </div>
             )}
-         </div>
-       </div>
- 
-       {/* Custom rules */}
-       <div className="panel">
-         <div className="panel-header">
-           <span className="panel-title">Custom Edit Rules</span>
-         </div>
-         <div className="p-3">
-           <Textarea
-             value={customRules}
-             onChange={(e) => onCustomRulesChange(e.target.value)}
-             rows={10}
-             className="font-mono text-xs leading-relaxed bg-muted/30 border-border/50 resize-none"
-             disabled={disabled}
-           />
          </div>
        </div>
      </div>
