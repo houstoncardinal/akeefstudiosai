@@ -52,6 +52,7 @@ import AdvancedSettingsPanel from '@/components/studio/AdvancedSettingsPanel';
 import TransitionsLibraryPanel from '@/components/studio/TransitionsLibraryPanel';
 import MotionEffectsPanel from '@/components/studio/MotionEffectsPanel';
 import { FrameCaptureProvider, useFrameCapture } from '@/components/studio/LUTPreviewSystem';
+import { type StackedLUT, blendLUTSettings } from '@/components/studio/LUTStackPanel';
 import { type AdvancedSettings, DEFAULT_ADVANCED_SETTINGS } from '@/lib/advancedPresets';
 import {
   Palette,
@@ -227,6 +228,7 @@ export default function Index() {
   const [advancedSettings, setAdvancedSettings] = useState<AdvancedSettings>(DEFAULT_ADVANCED_SETTINGS);
   const [selectedMotionEffects, setSelectedMotionEffects] = useState<string[]>([]);
   const [selectedTransitionsLib, setSelectedTransitionsLib] = useState<string[]>([]);
+  const [lutStack, setLutStack] = useState<StackedLUT[]>([]);
   const previewVideoRef = useRef<HTMLVideoElement | null>(null);
   const lutThumbnails = useLiveLUTThumbnails(previewVideoRef, CINEMATIC_LUTS, { enabled: !!file });
   
@@ -643,6 +645,8 @@ Apply all these settings to create a professional edit. Output valid FCPXML only
             onRedo={redoColor}
             disabled={isProcessing}
             currentFrame={currentFrame}
+            lutStack={lutStack}
+            onLutStackChange={setLutStack}
           />
         </PanelWrapper>
       </TabsContent>
