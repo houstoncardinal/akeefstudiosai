@@ -1,6 +1,6 @@
  import { GRAPHICS_TEMPLATES } from '@/lib/presets';
  import { cn } from '@/lib/utils';
- import { Type, Subtitles, LayoutTemplate, Play, Square, Check } from 'lucide-react';
+ import { Type, Subtitles, LayoutTemplate, Play, Square, Check, Sparkles } from 'lucide-react';
  
  interface GraphicsPanelProps {
    selectedGraphics: string[];
@@ -17,11 +17,19 @@
  };
  
  const typeColors: Record<string, string> = {
-   title: 'border-primary/30 bg-primary/5',
-   lower_third: 'border-accent/30 bg-accent/5',
-   caption: 'border-success/30 bg-success/5',
-   opener: 'border-magenta/30 bg-magenta/5',
-   end_card: 'border-warning/30 bg-warning/5',
+   title: 'bg-primary/5',
+   lower_third: 'bg-accent/5',
+   caption: 'bg-success/5',
+   opener: 'bg-magenta/5',
+   end_card: 'bg-warning/5',
+ };
+ 
+ const typeAccentColors: Record<string, string> = {
+   title: 'text-primary',
+   lower_third: 'text-accent',
+   caption: 'text-success',
+   opener: 'text-magenta',
+   end_card: 'text-warning',
  };
  
  export default function GraphicsPanel({ selectedGraphics, onGraphicsChange, disabled }: GraphicsPanelProps) {
@@ -41,21 +49,25 @@
    }, {} as Record<string, typeof GRAPHICS_TEMPLATES>);
  
    return (
-     <div className="space-y-4">
+    <div className="space-y-5">
        {Object.entries(grouped).map(([type, templates]) => {
          const Icon = typeIcons[type] || Type;
+        const accentColor = typeAccentColors[type] || 'text-primary';
          return (
-           <div key={type} className="panel">
+          <div key={type} className="panel relative overflow-hidden">
              <div className="panel-header">
                <div className="flex items-center gap-2">
-                 <Icon className="w-3.5 h-3.5 text-muted-foreground" />
+                <Icon className={cn('w-3.5 h-3.5', accentColor)} />
                  <span className="panel-title">{type.replace(/_/g, ' ')}s</span>
                </div>
-               <span className="text-[10px] text-muted-foreground">
-                 {templates.filter(t => selectedGraphics.includes(t.id)).length}/{templates.length}
-               </span>
+              <div className="flex items-center gap-2">
+                <span className={cn('text-[10px] font-bold', accentColor)}>
+                  {templates.filter(t => selectedGraphics.includes(t.id)).length}
+                </span>
+                <span className="text-[10px] text-muted-foreground">/ {templates.length}</span>
+              </div>
              </div>
-             <div className="p-3 grid grid-cols-2 gap-2">
+            <div className="p-4 grid grid-cols-2 gap-3">
                {templates.map((template) => {
                  const active = selectedGraphics.includes(template.id);
                  return (
@@ -64,18 +76,23 @@
                      onClick={() => toggle(template.id)}
                      disabled={disabled}
                      className={cn(
-                       'relative text-left p-3 rounded border transition-all',
-                       active ? 'border-primary bg-primary/10' : `${typeColors[type]} hover:border-primary/50`
+                      'relative text-left p-4 rounded-lg border transition-all duration-200',
+                      active 
+                        ? 'border-primary/50 bg-primary/10 shadow-lg shadow-primary/10' 
+                        : `border-border/40 ${typeColors[type]} hover:border-primary/40 hover:bg-primary/5`
                      )}
                    >
                      {active && (
-                       <div className="absolute top-2 right-2 w-4 h-4 rounded-full bg-primary flex items-center justify-center">
-                         <Check className="w-2.5 h-2.5 text-primary-foreground" />
+                      <div className="absolute top-3 right-3 w-5 h-5 rounded-full bg-primary flex items-center justify-center shadow-lg shadow-primary/30">
+                        <Check className="w-3 h-3 text-primary-foreground" />
                        </div>
                      )}
-                     <p className={cn('text-xs font-medium', active && 'text-primary')}>{template.name}</p>
-                     <p className="text-[9px] text-muted-foreground line-clamp-1 mt-0.5">{template.description}</p>
-                     <p className="text-[8px] text-muted-foreground mt-1 font-mono">{template.animation}</p>
+                    <p className={cn('text-xs font-semibold pr-6', active && 'text-primary')}>{template.name}</p>
+                    <p className="text-[9px] text-muted-foreground line-clamp-2 mt-1">{template.description}</p>
+                    <div className="mt-2 inline-flex items-center gap-1 px-2 py-0.5 rounded bg-muted/50 border border-border/30">
+                      <Sparkles className="w-2.5 h-2.5 text-muted-foreground" />
+                      <span className="text-[8px] text-muted-foreground font-mono">{template.animation.replace(/_/g, ' ')}</span>
+                    </div>
                    </button>
                  );
                })}

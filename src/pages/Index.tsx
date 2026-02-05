@@ -28,7 +28,8 @@
    Type, 
    Layers, 
    Download,
-   Wand2
+   Wand2,
+   Zap
  } from 'lucide-react';
  
  type ProcessingState = 'idle' | 'uploading' | 'processing' | 'completed' | 'failed';
@@ -252,12 +253,12 @@
    const showOutput = processingState === 'completed' && currentJob && outputXml;
  
    return (
-     <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background cyber-grid">
        <Header />
        
        <main className="h-[calc(100vh-56px)] flex flex-col overflow-hidden">
-         {/* Top section - Source & Timeline */}
-         <div className="flex-shrink-0 border-b border-border/40">
+        {/* Top section - Source & Timeline Preview */}
+        <div className="flex-shrink-0 border-b border-border/30 bg-card/30 backdrop-blur-sm">
            <div className="container mx-auto px-4 py-4">
              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                <SourcePanel 
@@ -274,41 +275,59 @@
            </div>
          </div>
  
-         {/* Bottom section - Tools & Output */}
+        {/* Bottom section - Studio Tools & Output */}
          <div className="flex-1 overflow-hidden">
-           <div className="container mx-auto px-4 py-4 h-full">
-             <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 h-full">
+          <div className="container mx-auto px-4 py-5 h-full">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 h-full">
                {/* Left - Tool Tabs */}
                <div className="lg:col-span-8 overflow-hidden">
                  <Tabs defaultValue="style" className="h-full flex flex-col">
-                   <TabsList className="w-full justify-start bg-muted/30 border border-border/50 p-1 h-auto flex-wrap gap-1">
-                     <TabsTrigger value="style" className="gap-1.5 text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-                       <Wand2 className="w-3.5 h-3.5" />
+                  <TabsList className="w-full justify-start bg-card/50 backdrop-blur-sm border border-border/40 p-1.5 h-auto flex-wrap gap-1.5 rounded-xl">
+                    <TabsTrigger 
+                      value="style" 
+                      className="gap-2 text-xs px-4 py-2 rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg data-[state=active]:shadow-primary/20 transition-all"
+                    >
+                      <Wand2 className="w-4 h-4" />
                        Style
                      </TabsTrigger>
-                     <TabsTrigger value="color" className="gap-1.5 text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-                       <Palette className="w-3.5 h-3.5" />
+                    <TabsTrigger 
+                      value="color" 
+                      className="gap-2 text-xs px-4 py-2 rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg data-[state=active]:shadow-primary/20 transition-all"
+                    >
+                      <Palette className="w-4 h-4" />
                        Color
                      </TabsTrigger>
-                     <TabsTrigger value="effects" className="gap-1.5 text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-                       <Sparkles className="w-3.5 h-3.5" />
+                    <TabsTrigger 
+                      value="effects" 
+                      className="gap-2 text-xs px-4 py-2 rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg data-[state=active]:shadow-primary/20 transition-all"
+                    >
+                      <Zap className="w-4 h-4" />
                        Effects
                      </TabsTrigger>
-                     <TabsTrigger value="graphics" className="gap-1.5 text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-                       <Type className="w-3.5 h-3.5" />
+                    <TabsTrigger 
+                      value="graphics" 
+                      className="gap-2 text-xs px-4 py-2 rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg data-[state=active]:shadow-primary/20 transition-all"
+                    >
+                      <Type className="w-4 h-4" />
                        Graphics
                      </TabsTrigger>
-                     <TabsTrigger value="versions" className="gap-1.5 text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-                       <Layers className="w-3.5 h-3.5" />
+                    <TabsTrigger 
+                      value="versions" 
+                      className="gap-2 text-xs px-4 py-2 rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg data-[state=active]:shadow-primary/20 transition-all"
+                    >
+                      <Layers className="w-4 h-4" />
                        Versions
                      </TabsTrigger>
-                     <TabsTrigger value="export" className="gap-1.5 text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-                       <Download className="w-3.5 h-3.5" />
+                    <TabsTrigger 
+                      value="export" 
+                      className="gap-2 text-xs px-4 py-2 rounded-lg data-[state=active]:bg-gradient-to-r data-[state=active]:from-primary data-[state=active]:to-accent data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg data-[state=active]:shadow-primary/20 transition-all"
+                    >
+                      <Sparkles className="w-4 h-4" />
                        Export
                      </TabsTrigger>
                    </TabsList>
  
-                   <div className="flex-1 overflow-auto mt-4">
+                  <div className="flex-1 overflow-auto mt-5 pr-1">
                      <TabsContent value="style" className="m-0 h-full">
                        <StylePanel
                          style={config.style}

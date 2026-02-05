@@ -1,5 +1,6 @@
  import { useMemo } from 'react';
  import { cn } from '@/lib/utils';
+ import { Clock, Volume2, Film, Wand2 } from 'lucide-react';
  
  interface TimelinePanelProps {
    fileContent: string | null;
@@ -23,68 +24,124 @@
  
    if (!fileContent) {
      return (
-       <div className="panel h-full">
+        <div className="panel h-full relative overflow-hidden">
          <div className="panel-header">
-           <span className="panel-title">Timeline Preview</span>
+            <div className="flex items-center gap-2">
+              <Clock className="w-3.5 h-3.5 text-muted-foreground" />
+              <span className="panel-title">Timeline Preview</span>
+            </div>
          </div>
-         <div className="p-6 flex items-center justify-center h-[120px] text-muted-foreground text-sm">
-           Import a file to see timeline
+          <div className="p-6 flex flex-col items-center justify-center h-[160px] text-center">
+            <div className="w-12 h-12 rounded-full bg-muted/50 border border-border/50 flex items-center justify-center mb-3">
+              <Film className="w-5 h-5 text-muted-foreground" />
+            </div>
+            <p className="text-sm text-muted-foreground font-medium">No timeline loaded</p>
+            <p className="text-[10px] text-muted-foreground/60 mt-1">Import an FCPXML file to preview</p>
          </div>
        </div>
      );
    }
  
    return (
-     <div className="panel h-full">
+      <div className="panel h-full relative overflow-hidden">
+        {/* Processing overlay effect */}
+        {isProcessing && (
+          <div className="absolute inset-0 bg-gradient-to-r from-primary/5 via-transparent to-accent/5 animate-pulse z-10 pointer-events-none" />
+        )}
+        
        <div className="panel-header">
-         <span className="panel-title">Timeline Preview</span>
-         <div className="flex items-center gap-1.5">
-           <div className={cn('w-1.5 h-1.5 rounded-full', isProcessing ? 'bg-primary animate-pulse' : 'bg-success')} />
-           <span className="text-[10px] text-muted-foreground">{clips.length} clips</span>
+          <div className="flex items-center gap-2">
+            <Clock className="w-3.5 h-3.5 text-primary" />
+            <span className="panel-title">Timeline Preview</span>
+          </div>
+          <div className="flex items-center gap-3">
+            {isProcessing && (
+              <div className="flex items-center gap-1.5 text-primary">
+                <Wand2 className="w-3 h-3 animate-spin" />
+                <span className="text-[9px] font-medium uppercase tracking-wider">AI Processing</span>
+              </div>
+            )}
+            <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-muted/50 border border-border/40">
+              <div className={cn('w-1.5 h-1.5 rounded-full', isProcessing ? 'bg-primary animate-pulse' : 'bg-success')} />
+              <span className="text-[9px] text-muted-foreground font-mono">{clips.length} clips</span>
+            </div>
          </div>
        </div>
-       <div className="p-3 space-y-2">
-         {/* Ruler */}
-         <div className="flex text-[8px] text-muted-foreground uppercase">
+        <div className="p-4 space-y-3">
+          {/* Timecode ruler */}
+          <div className="flex text-[8px] text-muted-foreground uppercase font-mono">
            {['00:00', '00:30', '01:00', '01:30', '02:00'].map((t, i) => (
-             <span key={i} className="flex-1 text-center">{t}</span>
+              <div key={i} className="flex-1 text-center relative">
+                <span>{t}</span>
+                <div className="absolute bottom-0 left-1/2 w-px h-1.5 bg-border/50 transform -translate-x-1/2" />
+              </div>
            ))}
          </div>
-         {/* V1 */}
+          
+          {/* Video track V1 */}
          <div className="flex items-center gap-2">
-           <span className="w-8 text-[9px] text-muted-foreground">V1</span>
-           <div className="flex-1 h-6 rounded-sm bg-muted/30 relative overflow-hidden">
+            <div className="w-10 flex items-center gap-1">
+              <Film className="w-3 h-3 text-primary/60" />
+              <span className="text-[9px] text-muted-foreground font-mono">V1</span>
+            </div>
+            <div className="flex-1 h-8 rounded bg-muted/40 relative overflow-hidden border border-border/30">
              {clips.map((c, i) => (
                <div
                  key={i}
                  className={cn(
-                   'absolute h-full rounded-sm border-l-2',
-                   isProcessing && 'animate-pulse',
-                   i % 3 === 0 ? 'bg-primary/40 border-primary' : i % 3 === 1 ? 'bg-accent/40 border-accent' : 'bg-magenta/40 border-magenta'
+                    'absolute h-full rounded border-l-2 transition-all duration-300',
+                    isProcessing && 'opacity-70',
+                    i % 3 === 0 
+                      ? 'bg-gradient-to-r from-primary/50 to-primary/30 border-primary' 
+                      : i % 3 === 1 
+                        ? 'bg-gradient-to-r from-accent/50 to-accent/30 border-accent' 
+                        : 'bg-gradient-to-r from-magenta/50 to-magenta/30 border-magenta'
                  )}
                  style={{ left: `${c.start}%`, width: `${c.duration}%` }}
-               />
+                >
+                  {/* Clip inner detail */}
+                  <div className="absolute inset-0 bg-gradient-to-b from-white/5 to-transparent" />
+                </div>
              ))}
+              {/* AI scanning effect */}
              {isProcessing && (
                <div className="absolute inset-0 overflow-hidden">
-                 <div className="absolute h-full w-1/4 bg-gradient-to-r from-transparent via-primary/20 to-transparent animate-scan" />
+                  <div className="absolute h-full w-1/3 bg-gradient-to-r from-transparent via-primary/30 to-transparent animate-scan" />
                </div>
              )}
            </div>
          </div>
-         {/* A1 */}
+          
+          {/* Audio track A1 */}
          <div className="flex items-center gap-2">
-           <span className="w-8 text-[9px] text-muted-foreground">A1</span>
-           <div className="flex-1 h-5 rounded-sm bg-muted/30 flex items-end px-0.5 gap-px overflow-hidden">
+            <div className="w-10 flex items-center gap-1">
+              <Volume2 className="w-3 h-3 text-success/60" />
+              <span className="text-[9px] text-muted-foreground font-mono">A1</span>
+            </div>
+            <div className="flex-1 h-6 rounded bg-muted/40 flex items-end px-1 gap-[2px] overflow-hidden border border-border/30">
              {waveform.map((h, i) => (
                <div
                  key={i}
-                 className={cn('w-1 bg-success/50 rounded-t-sm', isProcessing && 'animate-waveform')}
+                  className={cn(
+                    'flex-1 min-w-[2px] max-w-[4px] bg-gradient-to-t from-success/60 to-success/30 rounded-t-sm transition-all',
+                    isProcessing && 'animate-waveform'
+                  )}
                  style={{ height: `${h}%`, animationDelay: `${i * 0.02}s` }}
                />
              ))}
            </div>
          </div>
+          
+          {/* Playhead indicator */}
+          <div className="relative h-1 bg-muted/30 rounded-full overflow-hidden">
+            <div 
+              className={cn(
+                'absolute left-0 top-0 h-full bg-gradient-to-r from-primary to-accent rounded-full transition-all duration-500',
+                isProcessing ? 'animate-pulse' : ''
+              )} 
+              style={{ width: isProcessing ? '60%' : '100%' }}
+            />
+          </div>
        </div>
      </div>
    );
