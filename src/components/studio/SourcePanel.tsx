@@ -162,12 +162,12 @@ export default function SourcePanel({ file, onFileChange, fileContent, disabled,
           {file && fileInfo ? (
             <div className="w-full space-y-3">
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary/20 via-accent/15 to-primary/10 border border-primary/30 flex items-center justify-center shadow-lg shadow-primary/10">
+                <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+                  <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-gradient-to-br from-primary/20 via-accent/15 to-primary/10 border border-primary/30 flex items-center justify-center shadow-lg shadow-primary/10 flex-shrink-0">
                     {detectedFormat ? formatIcons[detectedFormat.icon] || <FileVideo className="w-5 h-5 text-primary" /> : <FileVideo className="w-5 h-5 text-primary" />}
                   </div>
-                  <div>
-                    <p className="text-sm font-semibold truncate max-w-[180px]">{file.name}</p>
+                  <div className="min-w-0">
+                    <p className="text-xs sm:text-sm font-semibold truncate">{file.name}</p>
                     <div className="flex items-center gap-2 mt-0.5">
                       <span className="text-[10px] text-muted-foreground">{fileInfo.fileSize || formatFileSize(file.size)}</span>
                       {detectedFormat && (
@@ -248,21 +248,21 @@ export default function SourcePanel({ file, onFileChange, fileContent, disabled,
           ) : (
             <div className="text-center py-2">
               <div className={cn(
-                'w-16 h-16 rounded-2xl mx-auto mb-4 flex items-center justify-center transition-all duration-300 border-2 border-dashed',
-                isDragActive 
-                  ? 'bg-primary/20 border-primary scale-110 shadow-lg shadow-primary/20' 
+                'w-14 h-14 sm:w-16 sm:h-16 rounded-2xl mx-auto mb-3 sm:mb-4 flex items-center justify-center transition-all duration-300 border-2 border-dashed',
+                isDragActive
+                  ? 'bg-primary/20 border-primary scale-110 shadow-lg shadow-primary/20'
                   : 'bg-muted/30 border-border/50 group-hover:border-primary/50 group-hover:bg-primary/5'
               )}>
                 <Upload className={cn(
-                  'w-7 h-7 transition-all duration-300',
+                  'w-6 h-6 sm:w-7 sm:h-7 transition-all duration-300',
                   isDragActive ? 'text-primary scale-110' : 'text-muted-foreground group-hover:text-primary'
                 )} />
               </div>
-              <p className="text-foreground font-semibold mb-1">
+              <p className="text-sm sm:text-base text-foreground font-semibold mb-1">
                 {isDragActive ? 'Drop your media here' : 'Import Video or Timeline'}
               </p>
               <p className="text-[11px] text-muted-foreground mb-3">
-                Drag & drop or click to browse
+                Drag & drop or tap to browse
               </p>
               <div className="flex flex-wrap justify-center gap-1">
                 {['MOV', 'MP4', 'ProRes', 'HEVC', 'FCPXML', 'RAW'].map((fmt) => (

@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useMemo } from 'react';
+import { useState, useRef, useEffect, useMemo, type RefObject } from 'react';
 import { cn } from '@/lib/utils';
 import {
   Play,
@@ -15,13 +15,30 @@ import {
   RotateCcw,
   ZoomIn,
   ZoomOut,
-  Grid3X3
+  Grid3X3,
+  SplitSquareHorizontal,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
 import { type VideoFormat } from '@/lib/formats';
-import { type ColorSettings } from '@/components/studio/ColorPanel';
+import SplitViewDivider from '@/components/studio/SplitViewDivider';
+import Histogram from '@/components/studio/Histogram';
+import {
+  useWebGLRenderer,
+  DEFAULT_COLOR_SETTINGS,
+  type FullColorSettings,
+  type EffectSettings,
+} from '@/hooks/useWebGLRenderer';
+import { DEFAULT_EFFECT_SETTINGS } from '@/lib/webgl/WebGLRenderer';
+
+const EFFECT_SETTINGS_MAP: Record<string, EffectSettings> = {
+  hype_mode: { grainAmount: 0.35, grainSize: 1.6, vignetteAmount: 0.35, vignetteMidpoint: 58, vignetteFeather: 45 },
+  cinematic_mode: { grainAmount: 0.12, grainSize: 1.2, vignetteAmount: 0.25, vignetteMidpoint: 64, vignetteFeather: 55 },
+  clean_mode: { grainAmount: 0.05, grainSize: 1, vignetteAmount: 0.08, vignetteMidpoint: 70, vignetteFeather: 60 },
+  retro_mode: { grainAmount: 0.25, grainSize: 2.1, vignetteAmount: 0.2, vignetteMidpoint: 60, vignetteFeather: 50 },
+  dynamic_mode: { grainAmount: 0.18, grainSize: 1.4, vignetteAmount: 0.22, vignetteMidpoint: 62, vignetteFeather: 50 },
+};
 
 interface VideoPreviewPanelProps {
   file: File | null;
@@ -29,9 +46,10 @@ interface VideoPreviewPanelProps {
   colorGrade: string;
   effectPreset: string;
   isProcessing: boolean;
-  colorSettings?: ColorSettings | null;
+  colorSettings?: FullColorSettings | null;
   beatTimestamps?: number[];
   sceneChangeTimestamps?: number[];
+  videoRef?: RefObject<HTMLVideoElement | null>;
 }
 
 export default function VideoPreviewPanel({
@@ -42,9 +60,12 @@ export default function VideoPreviewPanel({
   isProcessing,
   colorSettings,
   beatTimestamps,
-  sceneChangeTimestamps
+  sceneChangeTimestamps,
+  videoRef: externalVideoRef,
 }: VideoPreviewPanelProps) {
-  const videoRef = useRef<HTMLVideoElement>(null);
+  const internalVideoRef = useRef<HTMLVideoElement>(null);
+  const videoRef = externalVideoRef ?? internalVideoRef;
+  const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
@@ -54,47 +75,25 @@ export default function VideoPreviewPanel({
   const [showGrid, setShowGrid] = useState(false);
   const [zoom, setZoom] = useState(100);
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
+  const [splitEnabled, setSplitEnabled] = useState(false);
+  const [splitPosition, setSplitPosition] = useState(0.5);
+  const [histogram, setHistogram] = useState<number[] | null>(null);
 
-  // Build CSS filter from custom color settings or fall back to LUT-based preset
-  const combinedFilter = useMemo(() => {
-    if (!showOverlays) return 'none';
+  const webglColor = colorSettings ?? DEFAULT_COLOR_SETTINGS;
+  const webglEffects = EFFECT_SETTINGS_MAP[effectPreset] ?? DEFAULT_EFFECT_SETTINGS;
 
-    // If we have custom color settings, build filter dynamically
-    if (colorSettings) {
-      const parts: string[] = [];
-      if (colorSettings.contrast !== 1) parts.push(`contrast(${colorSettings.contrast})`);
-      if (colorSettings.saturation !== 1) parts.push(`saturate(${colorSettings.saturation})`);
-      // Temperature: positive = warm (sepia shift), negative = cool (hue-rotate blue)
-      if (colorSettings.temperature > 0) {
-        parts.push(`sepia(${Math.min(colorSettings.temperature / 100, 0.5)})`);
-      } else if (colorSettings.temperature < 0) {
-        parts.push(`hue-rotate(${Math.max(colorSettings.temperature * 0.4, -20)}deg)`);
-      }
-      // Shadows/highlights mapped to brightness shift
-      const brightnessAdjust = 1 + (colorSettings.highlights / 200) - (colorSettings.shadows / 400);
-      if (Math.abs(brightnessAdjust - 1) > 0.01) parts.push(`brightness(${brightnessAdjust.toFixed(3)})`);
-      return parts.length > 0 ? parts.join(' ') : 'none';
-    }
+  const { captureFrame, isReady } = useWebGLRenderer(
+    canvasRef,
+    videoRef,
+    webglColor,
+    webglEffects,
+    splitEnabled ? splitPosition : null
+  );
 
-    // Fall back to LUT-based preset filters
-    const gradeFilters: Record<string, string> = {
-      'teal-orange': 'sepia(0.2) saturate(1.3) hue-rotate(-10deg) contrast(1.1)',
-      'vintage-film': 'sepia(0.4) saturate(0.8) contrast(1.1) brightness(0.95)',
-      'moody-desat': 'saturate(0.5) contrast(1.3) brightness(0.9)',
-      'vibrant-pop': 'saturate(1.5) contrast(1.2) brightness(1.05)',
-      'neon-nights': 'saturate(1.4) contrast(1.3) hue-rotate(15deg) brightness(0.95)',
-      'golden-hour': 'sepia(0.3) saturate(1.2) brightness(1.1) contrast(0.95)',
-      'bw-classic': 'grayscale(1) contrast(1.3)',
-      'thriller-cold': 'saturate(0.7) hue-rotate(-20deg) contrast(1.2) brightness(0.9)',
-      'clean-natural': 'contrast(1.05) saturate(1.05)',
-      'blockbuster': 'contrast(1.2) saturate(1.1) brightness(0.95)',
-      'kodak-gold': 'sepia(0.15) saturate(1.3) contrast(1.05) brightness(1.02)',
-      'fuji-velvia': 'saturate(1.4) contrast(1.15)',
-      'scifi-green': 'hue-rotate(30deg) saturate(0.8) contrast(1.2)',
-      'romance-soft': 'saturate(0.9) brightness(1.08) contrast(0.92)',
-    };
-
-    return gradeFilters[colorGrade] || 'none';
+  const hasColorGrade = useMemo(() => {
+    if (!showOverlays) return false;
+    if (colorSettings) return true;
+    return colorGrade !== 'none';
   }, [colorGrade, colorSettings, showOverlays]);
 
   // Create video URL from file
@@ -127,6 +126,24 @@ export default function VideoPreviewPanel({
       video.removeEventListener('ended', handleEnded);
     };
   }, [videoUrl]);
+
+  // Periodically capture a frame for histogram when WebGL is active
+  useEffect(() => {
+    if (!isReady) return;
+    const interval = window.setInterval(() => {
+      const frame = captureFrame();
+      if (!frame) return;
+      const bins = new Array(256).fill(0);
+      const data = frame.data;
+      for (let i = 0; i < data.length; i += 4) {
+        const luma = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
+        bins[Math.min(255, Math.max(0, Math.round(luma)))] += 1;
+      }
+      setHistogram(bins);
+    }, 700);
+
+    return () => window.clearInterval(interval);
+  }, [captureFrame, isReady]);
 
   const togglePlay = () => {
     const video = videoRef.current;
@@ -191,10 +208,10 @@ export default function VideoPreviewPanel({
             <span className="panel-title">Video Preview</span>
           </div>
         </div>
-        <div className="flex items-center justify-center h-[200px]">
-          <div className="text-center">
-            <div className="w-16 h-16 rounded-2xl bg-muted/30 border border-border/50 flex items-center justify-center mx-auto mb-3">
-              <Film className="w-7 h-7 text-muted-foreground/50" />
+        <div className="flex items-center justify-center h-[160px] sm:h-[200px]">
+          <div className="text-center px-4">
+            <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-muted/30 border border-border/50 flex items-center justify-center mx-auto mb-3">
+              <Film className="w-6 h-6 sm:w-7 sm:h-7 text-muted-foreground/50" />
             </div>
             <p className="text-sm text-muted-foreground font-medium">No video loaded</p>
             <p className="text-[10px] text-muted-foreground/60 mt-1">
@@ -218,15 +235,15 @@ export default function VideoPreviewPanel({
           <Film className="w-3.5 h-3.5 text-primary" />
           <span className="panel-title">Video Preview</span>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5 sm:gap-2">
           {detectedFormat && (
-            <Badge variant="outline" className="text-[9px]">
+            <Badge variant="outline" className="text-[9px] hidden sm:inline-flex">
               {detectedFormat.name}
             </Badge>
           )}
           <Badge variant="outline" className="text-[9px] bg-primary/10 border-primary/30 text-primary">
             <Sparkles className="w-2.5 h-2.5 mr-1" />
-            Live Preview
+            <span className="hidden sm:inline">Live</span> Preview
           </Badge>
         </div>
       </div>
@@ -262,20 +279,36 @@ export default function VideoPreviewPanel({
           />
         )}
 
-        {/* Video Element */}
+        {/* WebGL Canvas */}
+        <canvas
+          ref={canvasRef}
+          className="absolute inset-0 w-full h-full"
+          style={{ transform: `scale(${zoom / 100})`, transformOrigin: 'center center' }}
+        />
+
+        {/* Hidden/visible video element (fallback + texture source) */}
         <video
           ref={videoRef}
           src={videoUrl}
-          className="w-full h-full object-contain"
-          style={{
-            filter: combinedFilter,
-            transform: `scale(${zoom / 100})`
-          }}
+          className={cn(
+            'absolute inset-0 w-full h-full object-contain transition-opacity',
+            isReady ? 'opacity-0 pointer-events-none' : 'opacity-100'
+          )}
+          style={{ transform: `scale(${zoom / 100})`, transformOrigin: 'center center' }}
           playsInline
         />
 
+        {/* Split view divider */}
+        {splitEnabled && (
+          <SplitViewDivider
+            position={splitPosition}
+            onChange={setSplitPosition}
+            disabled={!isReady}
+          />
+        )}
+
         {/* Effect Labels */}
-        {showOverlays && combinedFilter !== 'none' && (
+        {showOverlays && hasColorGrade && (
           <div className="absolute top-2 left-2 z-20 flex flex-col gap-1">
             <Badge
               variant="secondary"
@@ -295,10 +328,23 @@ export default function VideoPreviewPanel({
             </Badge>
           </div>
         )}
+
+        {/* Tap-to-play overlay for mobile */}
+        <button
+          className="absolute inset-0 z-15 sm:hidden flex items-center justify-center"
+          onClick={togglePlay}
+          aria-label={isPlaying ? 'Pause' : 'Play'}
+        >
+          {!isPlaying && (
+            <div className="w-14 h-14 rounded-full bg-black/50 backdrop-blur-sm flex items-center justify-center">
+              <Play className="w-6 h-6 text-white ml-0.5" />
+            </div>
+          )}
+        </button>
       </div>
 
       {/* Controls */}
-      <div className="p-3 space-y-2 bg-card/50">
+      <div className="p-2 sm:p-3 space-y-2 bg-card/50">
         {/* Progress Bar with markers */}
         <div className="relative">
           {/* Beat markers */}
@@ -358,31 +404,31 @@ export default function VideoPreviewPanel({
 
         {/* Transport Controls */}
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-1">
-            <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={skipBackward}>
-              <SkipBack className="w-3.5 h-3.5" />
+          <div className="flex items-center gap-0.5 sm:gap-1">
+            <Button variant="ghost" size="sm" className="h-8 w-8 sm:h-7 sm:w-7 p-0" onClick={skipBackward}>
+              <SkipBack className="w-4 h-4 sm:w-3.5 sm:h-3.5" />
             </Button>
             <Button
               variant="ghost"
               size="sm"
-              className={cn("h-8 w-8 p-0", isPlaying && "bg-primary/20")}
+              className={cn("h-9 w-9 sm:h-8 sm:w-8 p-0", isPlaying && "bg-primary/20")}
               onClick={togglePlay}
             >
-              {isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
+              {isPlaying ? <Pause className="w-4.5 h-4.5 sm:w-4 sm:h-4" /> : <Play className="w-4.5 h-4.5 sm:w-4 sm:h-4" />}
             </Button>
-            <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={skipForward}>
-              <SkipForward className="w-3.5 h-3.5" />
+            <Button variant="ghost" size="sm" className="h-8 w-8 sm:h-7 sm:w-7 p-0" onClick={skipForward}>
+              <SkipForward className="w-4 h-4 sm:w-3.5 sm:h-3.5" />
             </Button>
-            <span className="text-[10px] font-mono text-muted-foreground ml-2">
+            <span className="text-[10px] font-mono text-muted-foreground ml-1 sm:ml-2">
               {formatTime(currentTime)} / {formatTime(duration)}
             </span>
           </div>
 
-          <div className="flex items-center gap-2">
-            {/* Volume */}
-            <div className="flex items-center gap-1">
-              <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={toggleMute}>
-                {isMuted ? <VolumeX className="w-3 h-3" /> : <Volume2 className="w-3 h-3" />}
+          <div className="flex items-center gap-1 sm:gap-2">
+            {/* Volume - hidden on small mobile */}
+            <div className="hidden sm:flex items-center gap-1">
+              <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={toggleMute}>
+                {isMuted ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
               </Button>
               <Slider
                 value={[isMuted ? 0 : volume]}
@@ -394,51 +440,68 @@ export default function VideoPreviewPanel({
             </div>
 
             {/* View Controls */}
-            <div className="flex items-center gap-1 border-l border-border/50 pl-2">
+            <div className="flex items-center gap-0.5 sm:gap-1 border-l border-border/50 pl-1.5 sm:pl-2">
               <Button
                 variant="ghost"
                 size="sm"
-                className={cn("h-6 w-6 p-0", showGrid && "bg-primary/20")}
+                className={cn("h-7 w-7 sm:h-6 sm:w-6 p-0", showGrid && "bg-primary/20")}
                 onClick={() => setShowGrid(!showGrid)}
               >
-                <Grid3X3 className="w-3 h-3" />
+                <Grid3X3 className="w-3.5 h-3.5 sm:w-3 sm:h-3" />
               </Button>
               <Button
                 variant="ghost"
                 size="sm"
-                className={cn("h-6 w-6 p-0", showOverlays && "bg-primary/20")}
+                className={cn("h-7 w-7 sm:h-6 sm:w-6 p-0", showOverlays && "bg-primary/20")}
                 onClick={() => setShowOverlays(!showOverlays)}
               >
-                {showOverlays ? <Eye className="w-3 h-3" /> : <EyeOff className="w-3 h-3" />}
+                {showOverlays ? <Eye className="w-3.5 h-3.5 sm:w-3 sm:h-3" /> : <EyeOff className="w-3.5 h-3.5 sm:w-3 sm:h-3" />}
               </Button>
+              {/* Zoom controls - desktop only */}
+              <div className="hidden sm:flex items-center gap-1">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 w-6 p-0"
+                  onClick={() => setZoom(prev => Math.min(200, prev + 25))}
+                >
+                  <ZoomIn className="w-3 h-3" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 w-6 p-0"
+                  onClick={() => setZoom(prev => Math.max(50, prev - 25))}
+                >
+                  <ZoomOut className="w-3 h-3" />
+                </Button>
+              </div>
               <Button
                 variant="ghost"
                 size="sm"
-                className="h-6 w-6 p-0"
-                onClick={() => setZoom(prev => Math.min(200, prev + 25))}
+                className={cn("h-7 w-7 sm:h-6 sm:w-6 p-0", splitEnabled && "bg-primary/20")}
+                onClick={() => setSplitEnabled((v) => !v)}
+                title="Toggle split view"
               >
-                <ZoomIn className="w-3 h-3" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-6 w-6 p-0"
-                onClick={() => setZoom(prev => Math.max(50, prev - 25))}
-              >
-                <ZoomOut className="w-3 h-3" />
+                <SplitSquareHorizontal className="w-3.5 h-3.5 sm:w-3 sm:h-3" />
               </Button>
               {zoom !== 100 && (
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="h-6 w-6 p-0"
+                  className="h-7 w-7 sm:h-6 sm:w-6 p-0"
                   onClick={() => setZoom(100)}
                 >
-                  <RotateCcw className="w-3 h-3" />
+                  <RotateCcw className="w-3.5 h-3.5 sm:w-3 sm:h-3" />
                 </Button>
               )}
             </div>
           </div>
+        </div>
+
+        {/* Histogram - hidden on very small screens */}
+        <div className="hidden sm:block">
+          <Histogram data={histogram} label="Luma Histogram" height={54} />
         </div>
       </div>
     </div>

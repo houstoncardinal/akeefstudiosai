@@ -1,12 +1,17 @@
 import { useState, useEffect } from 'react';
 import { CINEMATIC_LUTS, type CinematicLUT } from '@/lib/presets';
 import { cn } from '@/lib/utils';
-import { CheckCircle, Film, Sparkles, Camera, Tv, Music, RotateCcw } from 'lucide-react';
+import { CheckCircle, Film, Sparkles, Camera, Tv, Music, RotateCcw, Undo2, Redo2 } from 'lucide-react';
 import { Slider } from '@/components/ui/slider';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { type FullColorSettings } from '@/lib/webgl/WebGLRenderer';
+import ColorWheel from '@/components/studio/ColorWheel';
+
+// Legacy compatibility: alias old ColorSettings to the richer FullColorSettings
+export type ColorSettings = FullColorSettings;
 
 // Import LUT thumbnails
 import tealOrangeThumb from '@/assets/luts/teal-orange.jpg';
@@ -24,18 +29,16 @@ import goldenHourThumb from '@/assets/luts/golden-hour.jpg';
 import bwClassicThumb from '@/assets/luts/bw-classic.jpg';
 import romanceSoftThumb from '@/assets/luts/romance-soft.jpg';
 
-export interface ColorSettings {
-  contrast: number;
-  saturation: number;
-  temperature: number;
-  shadows: number;
-  highlights: number;
-}
-
 interface ColorPanelProps {
   colorGrade: string;
   onColorGradeChange: (colorGrade: string) => void;
-  onColorSettingsChange?: (settings: ColorSettings) => void;
+  onColorSettingsChange?: (settings: FullColorSettings) => void;
+  settings?: FullColorSettings | null;
+  lutThumbnails?: Map<string, string>;
+  canUndo?: boolean;
+  canRedo?: boolean;
+  onUndo?: () => void;
+  onRedo?: () => void;
   disabled?: boolean;
 }
 
@@ -72,36 +75,112 @@ const categoryLabels = {
   music_video: 'Music Video',
 };
 
-function getLUTDefaults(lut: CinematicLUT): ColorSettings {
+export function getLUTDefaults(lut: CinematicLUT): FullColorSettings {
   return {
     contrast: lut.settings.contrast,
     saturation: lut.settings.saturation,
     temperature: lut.settings.temperature,
+    tint: lut.settings.tint,
     shadows: lut.settings.shadows,
     highlights: lut.settings.highlights,
+    lift: { r: lut.settings.lift, g: lut.settings.lift, b: lut.settings.lift },
+    gamma: { r: lut.settings.gamma, g: lut.settings.gamma, b: lut.settings.gamma },
+    gain: { r: lut.settings.gain, g: lut.settings.gain, b: lut.settings.gain },
   };
 }
 
-export default function ColorPanel({ colorGrade, onColorGradeChange, onColorSettingsChange, disabled }: ColorPanelProps) {
+function areSettingsEqual(a: FullColorSettings, b: FullColorSettings) {
+  const keys: (keyof FullColorSettings)[] = [
+    'contrast',
+    'saturation',
+    'temperature',
+    'tint',
+    'shadows',
+    'highlights',
+  ];
+  for (const k of keys) {
+    if (Math.abs(a[k] as number - (b[k] as number)) > 0.0001) return false;
+  }
+  return (
+    Math.abs(a.lift.r - b.lift.r) < 0.0001 &&
+    Math.abs(a.lift.g - b.lift.g) < 0.0001 &&
+    Math.abs(a.lift.b - b.lift.b) < 0.0001 &&
+    Math.abs(a.gamma.r - b.gamma.r) < 0.0001 &&
+    Math.abs(a.gamma.g - b.gamma.g) < 0.0001 &&
+    Math.abs(a.gamma.b - b.gamma.b) < 0.0001 &&
+    Math.abs(a.gain.r - b.gain.r) < 0.0001 &&
+    Math.abs(a.gain.g - b.gain.g) < 0.0001 &&
+    Math.abs(a.gain.b - b.gain.b) < 0.0001
+  );
+}
+
+// Slider gradient styles for visual context
+const sliderGradients: Record<string, string> = {
+  temperature: 'linear-gradient(to right, #3b82f6, #f59e0b)',
+  tint: 'linear-gradient(to right, #22c55e, #ec4899)',
+  saturation: 'linear-gradient(to right, #6b7280, #f43f5e)',
+};
+
+export default function ColorPanel({
+  colorGrade,
+  onColorGradeChange,
+  onColorSettingsChange,
+  settings,
+  lutThumbnails,
+  canUndo,
+  canRedo,
+  onUndo,
+  onRedo,
+  disabled,
+}: ColorPanelProps) {
   const selectedLUT = CINEMATIC_LUTS.find(l => l.id === colorGrade);
 
-  const [customSettings, setCustomSettings] = useState<ColorSettings | null>(null);
+  const [customSettings, setCustomSettings] = useState<FullColorSettings | null>(settings ?? null);
+
+  // Sync external state (undo/redo) back into the panel
+  useEffect(() => {
+    if (settings) {
+      setCustomSettings(settings);
+    }
+  }, [settings]);
 
   // Reset custom settings when LUT changes
   useEffect(() => {
     setCustomSettings(null);
-  }, [colorGrade]);
+    if (selectedLUT && onColorSettingsChange) {
+      onColorSettingsChange(getLUTDefaults(selectedLUT));
+    }
+  }, [colorGrade, onColorSettingsChange, selectedLUT]);
 
-  const currentSettings: ColorSettings | null = selectedLUT
-    ? (customSettings ?? getLUTDefaults(selectedLUT))
+  const currentSettings: FullColorSettings | null = selectedLUT
+    ? settings ?? customSettings ?? getLUTDefaults(selectedLUT)
     : null;
 
-  const isCustomized = customSettings !== null;
+  const isCustomized =
+    !!currentSettings &&
+    !!selectedLUT &&
+    !areSettingsEqual(currentSettings, getLUTDefaults(selectedLUT));
 
-  const handleSliderChange = (key: keyof ColorSettings, value: number) => {
+  const handleSliderChange = (key: keyof FullColorSettings, value: number) => {
     if (!selectedLUT) return;
-    const base = customSettings ?? getLUTDefaults(selectedLUT);
+    const base = currentSettings ?? getLUTDefaults(selectedLUT);
     const updated = { ...base, [key]: value };
+    setCustomSettings(updated);
+    onColorSettingsChange?.(updated);
+  };
+
+  const handleWheelChange = (key: 'lift' | 'gamma' | 'gain', value: { r: number; g: number; b: number }) => {
+    if (!selectedLUT) return;
+    const base = currentSettings ?? getLUTDefaults(selectedLUT);
+    const updated = { ...base, [key]: value };
+    setCustomSettings(updated);
+    onColorSettingsChange?.(updated);
+  };
+
+  const handleResetSlider = (key: keyof FullColorSettings) => {
+    if (!selectedLUT) return;
+    const defaults = getLUTDefaults(selectedLUT);
+    const updated = { ...(currentSettings ?? defaults), [key]: defaults[key] };
     setCustomSettings(updated);
     onColorSettingsChange?.(updated);
   };
@@ -116,7 +195,9 @@ export default function ColorPanel({ colorGrade, onColorGradeChange, onColorSett
 
   const renderLUTCard = (lut: CinematicLUT) => {
     const active = colorGrade === lut.id;
-    const thumbnail = thumbnailMap[lut.thumbnail];
+    // Prefer live thumbnail from video, fall back to static
+    const liveThumbnail = lutThumbnails?.get(lut.id);
+    const thumbnail = liveThumbnail || thumbnailMap[lut.thumbnail];
 
     return (
       <button
@@ -132,13 +213,24 @@ export default function ColorPanel({ colorGrade, onColorGradeChange, onColorSett
       >
         {/* Thumbnail */}
         <div className="aspect-video relative overflow-hidden">
-          <img
-            src={thumbnail}
-            alt={lut.name}
-            className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-          />
+          {thumbnail ? (
+            <img
+              src={thumbnail}
+              alt={lut.name}
+              className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+            />
+          ) : (
+            <div className="w-full h-full bg-muted/30 animate-pulse" />
+          )}
           {/* Overlay gradient */}
           <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+          {liveThumbnail && (
+            <div className="absolute top-2 left-2">
+              <Badge variant="secondary" className="text-[7px] bg-black/50 text-white border-0 backdrop-blur-sm px-1 py-0">
+                LIVE
+              </Badge>
+            </div>
+          )}
 
           {/* Active indicator */}
           {active && (
@@ -183,6 +275,7 @@ export default function ColorPanel({ colorGrade, onColorGradeChange, onColorSett
     { key: 'contrast' as const, label: 'Contrast', range: [0.5, 2] as [number, number], step: 0.05 },
     { key: 'saturation' as const, label: 'Saturation', range: [0, 2] as [number, number], step: 0.05 },
     { key: 'temperature' as const, label: 'Temperature', range: [-50, 50] as [number, number], step: 1 },
+    { key: 'tint' as const, label: 'Tint', range: [-50, 50] as [number, number], step: 1 },
     { key: 'shadows' as const, label: 'Shadows', range: [-50, 50] as [number, number], step: 1 },
     { key: 'highlights' as const, label: 'Highlights', range: [-50, 50] as [number, number], step: 1 },
   ];
@@ -202,7 +295,7 @@ export default function ColorPanel({ colorGrade, onColorGradeChange, onColorSett
         </div>
 
         <Tabs defaultValue="hollywood" className="w-full">
-          <div className="px-3 pt-3">
+          <div className="px-2 sm:px-3 pt-2 sm:pt-3 overflow-x-auto scrollbar-hide">
             <TabsList className="w-full h-auto flex-wrap gap-1 bg-muted/30 p-1">
               {categories.map(cat => {
                 const Icon = categoryIcons[cat];
@@ -211,7 +304,7 @@ export default function ColorPanel({ colorGrade, onColorGradeChange, onColorSett
                   <TabsTrigger
                     key={cat}
                     value={cat}
-                    className="flex-1 min-w-[80px] gap-1 text-[10px] px-2 py-1.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+                    className="flex-1 min-w-[60px] sm:min-w-[80px] gap-1 text-[10px] px-1.5 sm:px-2 py-2 sm:py-1.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
                   >
                     <Icon className="w-3 h-3" />
                     <span className="hidden sm:inline">{categoryLabels[cat]}</span>
@@ -222,7 +315,7 @@ export default function ColorPanel({ colorGrade, onColorGradeChange, onColorSett
             </TabsList>
           </div>
 
-          <ScrollArea className="h-[320px]">
+          <ScrollArea className="h-[280px] sm:h-[320px]">
             {categories.map(cat => (
               <TabsContent key={cat} value={cat} className="m-0 p-3">
                 <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
@@ -248,6 +341,31 @@ export default function ColorPanel({ colorGrade, onColorGradeChange, onColorSett
               )}
             </div>
             <div className="flex items-center gap-2">
+              {/* Undo/Redo */}
+              {(canUndo || canRedo) && (
+                <div className="flex items-center gap-0.5">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 w-6 p-0"
+                    onClick={onUndo}
+                    disabled={!canUndo || disabled}
+                    title="Undo (Ctrl+Z)"
+                  >
+                    <Undo2 className="w-3 h-3" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 w-6 p-0"
+                    onClick={onRedo}
+                    disabled={!canRedo || disabled}
+                    title="Redo (Ctrl+Shift+Z)"
+                  >
+                    <Redo2 className="w-3 h-3" />
+                  </Button>
+                </div>
+              )}
               {isCustomized && (
                 <Button
                   variant="ghost"
@@ -262,54 +380,80 @@ export default function ColorPanel({ colorGrade, onColorGradeChange, onColorSett
               <span className="text-[9px] text-muted-foreground font-mono">{selectedLUT.lut}</span>
             </div>
           </div>
-          <div className="p-4 space-y-3">
-            {/* Main color wheels */}
-            <div className="grid grid-cols-3 gap-3 mb-4">
-              {[
-                { label: 'Lift', value: selectedLUT.settings.lift },
-                { label: 'Gamma', value: selectedLUT.settings.gamma },
-                { label: 'Gain', value: selectedLUT.settings.gain },
-              ].map((wheel) => (
-                <div key={wheel.label} className="text-center p-2 rounded-lg bg-muted/30 border border-border/30">
-                  <div className="w-10 h-10 mx-auto rounded-full bg-gradient-to-br from-primary/20 to-accent/20 border border-border/50 flex items-center justify-center mb-1">
-                    <span className="text-[10px] font-mono font-bold">
-                      {wheel.value > 0 ? `+${wheel.value}` : wheel.value}
-                    </span>
-                  </div>
-                  <span className="text-[9px] text-muted-foreground uppercase tracking-wider">{wheel.label}</span>
-                </div>
-              ))}
+          <div className="p-3 sm:p-4 space-y-3">
+            {/* Interactive color wheels */}
+            <div className="grid grid-cols-3 gap-2 sm:gap-3 mb-4">
+              <ColorWheel
+                label="Lift"
+                value={currentSettings.lift}
+                onChange={(v) => handleWheelChange('lift', v)}
+                size={72}
+                disabled={disabled}
+              />
+              <ColorWheel
+                label="Gamma"
+                value={currentSettings.gamma}
+                onChange={(v) => handleWheelChange('gamma', v)}
+                size={72}
+                disabled={disabled}
+                centerValue={1}
+              />
+              <ColorWheel
+                label="Gain"
+                value={currentSettings.gain}
+                onChange={(v) => handleWheelChange('gain', v)}
+                size={72}
+                disabled={disabled}
+                centerValue={1}
+              />
             </div>
 
-            {/* Sliders — fully interactive */}
+            {/* Sliders with visual enhancements */}
             {sliderDefs.map((setting) => {
-              const value = currentSettings[setting.key];
-              const lutDefault = getLUTDefaults(selectedLUT)[setting.key];
+              const value = currentSettings[setting.key] as number;
+              const lutDefault = getLUTDefaults(selectedLUT)[setting.key] as number;
               const isModified = customSettings !== null && value !== lutDefault;
+              const gradient = sliderGradients[setting.key];
               return (
                 <div key={setting.key} className="space-y-1.5">
                   <div className="flex justify-between items-center">
-                    <span className={cn(
-                      "text-[10px] uppercase tracking-wider",
-                      isModified ? "text-accent font-semibold" : "text-muted-foreground"
-                    )}>
+                    <span
+                      className={cn(
+                        "text-[10px] uppercase tracking-wider cursor-pointer select-none",
+                        isModified ? "text-accent font-semibold" : "text-muted-foreground"
+                      )}
+                      onDoubleClick={() => handleResetSlider(setting.key)}
+                      title="Double-click to reset"
+                    >
                       {setting.label}
                     </span>
-                    <span className={cn(
-                      "text-[10px] font-mono font-semibold px-1.5 py-0.5 rounded",
-                      isModified ? "text-accent bg-accent/10" : "text-foreground bg-muted/50"
-                    )}>
-                      {value > 0 ? `+${value}` : value}
+                    <span
+                      className={cn(
+                        "text-[10px] font-mono font-semibold px-1.5 py-0.5 rounded cursor-pointer select-none",
+                        isModified ? "text-accent bg-accent/10" : "text-foreground bg-muted/50"
+                      )}
+                      onDoubleClick={() => handleResetSlider(setting.key)}
+                      title="Double-click to reset"
+                    >
+                      {typeof value === 'number' && value > 0 ? `+${value}` : value}
                     </span>
                   </div>
-                  <Slider
-                    value={[value]}
-                    min={setting.range[0]}
-                    max={setting.range[1]}
-                    step={setting.step}
-                    onValueChange={([v]) => handleSliderChange(setting.key, v)}
-                    disabled={disabled}
-                  />
+                  <div className="relative">
+                    {gradient && (
+                      <div
+                        className="absolute inset-0 rounded-full opacity-20 pointer-events-none"
+                        style={{ background: gradient, height: '4px', top: '50%', transform: 'translateY(-50%)' }}
+                      />
+                    )}
+                    <Slider
+                      value={[value]}
+                      min={setting.range[0]}
+                      max={setting.range[1]}
+                      step={setting.step}
+                      onValueChange={([v]) => handleSliderChange(setting.key, v)}
+                      disabled={disabled}
+                    />
+                  </div>
                 </div>
               );
             })}

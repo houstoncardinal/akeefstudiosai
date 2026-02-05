@@ -3,7 +3,6 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import {
   STYLE_PRESETS,
-  COLOR_GRADES,
   EFFECT_PRESETS,
   GRAPHICS_TEMPLATES,
   VERSION_TYPES,
@@ -15,11 +14,13 @@ import { type VideoFormat } from '@/lib/formats';
 import { type AudioAnalysisResult } from '@/lib/audioAnalysis';
 import { type VideoAnalysisResult } from '@/lib/videoAnalysis';
 import Header from '@/components/studio/Header';
+import { cn } from '@/lib/utils';
 import SourcePanel from '@/components/studio/SourcePanel';
+import ExportsLibrary from '@/components/studio/ExportsLibrary';
 import TimelineVisualizerDetailed from '@/components/studio/TimelineVisualizerDetailed';
 import VideoPreviewPanel from '@/components/studio/VideoPreviewPanel';
 import StylePanel from '@/components/studio/StylePanel';
-import ColorPanel, { type ColorSettings } from '@/components/studio/ColorPanel';
+import ColorPanel, { getLUTDefaults } from '@/components/studio/ColorPanel';
 import EffectsPanel, { type EffectOverrides } from '@/components/studio/EffectsPanel';
 import GraphicsPanel from '@/components/studio/GraphicsPanel';
 import VersionPanel from '@/components/studio/VersionPanel';
@@ -38,87 +39,115 @@ import CustomRulesEditorEnhanced from '@/components/studio/CustomRulesEditorEnha
 import PanelWrapper from '@/components/studio/PanelWrapper';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/components/ui/resizable';
- import { 
-   Palette, 
-   Sparkles, 
-   Type, 
-   Layers, 
-   Wand2,
-   Zap,
-   Wrench,
-   ArrowRightLeft,
-   Eye,
-   Music,
+import { ScrollArea } from '@/components/ui/scroll-area';
+import {
+  Palette,
+  Sparkles,
+  Type,
+  Layers,
+  Wand2,
+  Zap,
+  Wrench,
+  ArrowRightLeft,
+  Eye,
+  Music,
   Compass,
-  MessageSquare
- } from 'lucide-react';
- 
- type ProcessingState = 'idle' | 'uploading' | 'processing' | 'completed' | 'failed';
- 
- interface JobData {
-   id: string;
-   input_filename: string;
-   output_filename: string | null;
-   output_file_path: string | null;
-   preset: string;
-   model: string;
-   status: string;
-   error_message: string | null;
-   created_at: string;
-   completed_at: string | null;
- }
- 
- interface EditConfig {
-   style: string;
-   colorGrade: string;
-   effectPreset: string;
-   graphics: string[];
-   versions: string[];
-   exportFormat: string;
-   model: string;
-   customRules: string;
+  MessageSquare,
+  ChevronDown,
+  ChevronUp,
+  Video,
+  FileCode,
+  FolderOpen
+} from 'lucide-react';
+import { useUndoRedo } from '@/hooks/useUndoRedo';
+import { useLiveLUTThumbnails } from '@/hooks/useLiveLUTThumbnails';
+import { DEFAULT_COLOR_SETTINGS, type FullColorSettings } from '@/hooks/useWebGLRenderer';
+import { useDeviceType } from '@/hooks/use-mobile';
+import { useExportHistory } from '@/hooks/useExportHistory';
+
+type ProcessingState = 'idle' | 'uploading' | 'processing' | 'completed' | 'failed';
+
+interface JobData {
+  id: string;
+  input_filename: string;
+  output_filename: string | null;
+  output_file_path: string | null;
+  preset: string;
+  model: string;
+  status: string;
+  error_message: string | null;
+  created_at: string;
+  completed_at: string | null;
+}
+
+interface EditConfig {
+  style: string;
+  colorGrade: string;
+  effectPreset: string;
+  graphics: string[];
+  versions: string[];
+  exportFormat: string;
+  model: string;
+  customRules: string;
   formatTools: string[];
-   transitions: string[];
-   shotAnalysisRules: Record<string, string[]>;
-   beatRules: string[];
-   directorIntent: string | null;
-   customIntent: string;
- }
- 
- const getSessionId = () => {
-   let sessionId = localStorage.getItem('akeef_session_id');
-   if (!sessionId) {
-     sessionId = crypto.randomUUID();
-     localStorage.setItem('akeef_session_id', sessionId);
-   }
-   return sessionId;
- };
- 
- export default function Index() {
-   const { toast } = useToast();
- 
-   // File state
-   const [file, setFile] = useState<File | null>(null);
-   const [fileContent, setFileContent] = useState<string | null>(null);
- 
-   // Edit configuration
-   const [config, setConfig] = useState<EditConfig>({
-     style: STYLE_PRESETS[0].id,
-     colorGrade: COLOR_GRADES[0].id,
-     effectPreset: EFFECT_PRESETS[1].id, // Cinematic as default
-     graphics: [],
-     versions: ['rough_cut'],
-     exportFormat: EXPORT_FORMATS[0].id,
-     model: AI_MODELS[0].id,
-     customRules: STYLE_PRESETS[0].defaultRules,
+  transitions: string[];
+  shotAnalysisRules: Record<string, string[]>;
+  beatRules: string[];
+  directorIntent: string | null;
+  customIntent: string;
+}
+
+const getSessionId = () => {
+  let sessionId = localStorage.getItem('akeef_session_id');
+  if (!sessionId) {
+    sessionId = crypto.randomUUID();
+    localStorage.setItem('akeef_session_id', sessionId);
+  }
+  return sessionId;
+};
+
+const toolSections = [
+  { id: 'style', label: 'Style', icon: <Wand2 className="w-4 h-4" /> },
+  { id: 'color', label: 'Color', icon: <Palette className="w-4 h-4" /> },
+  { id: 'effects', label: 'Effects', icon: <Zap className="w-4 h-4" /> },
+  { id: 'graphics', label: 'Graphics', icon: <Type className="w-4 h-4" /> },
+  { id: 'versions', label: 'Versions', icon: <Layers className="w-4 h-4" /> },
+  { id: 'tools', label: 'AI Tools', icon: <Wrench className="w-4 h-4" /> },
+  { id: 'transitions', label: 'Transitions', icon: <ArrowRightLeft className="w-4 h-4" /> },
+  { id: 'shots', label: 'Shots', icon: <Eye className="w-4 h-4" /> },
+  { id: 'beats', label: 'Beats', icon: <Music className="w-4 h-4" /> },
+  { id: 'intent', label: 'Intent', icon: <Compass className="w-4 h-4" /> },
+  { id: 'export', label: 'Export', icon: <Sparkles className="w-4 h-4" /> },
+  { id: 'exports', label: 'Exports', icon: <FolderOpen className="w-4 h-4" /> },
+];
+
+export default function Index() {
+  const { toast } = useToast();
+  const device = useDeviceType();
+  const { records: exportRecords, addExport, removeExport, clearAll: clearExports, redownload: redownloadExport } = useExportHistory();
+
+  // File state
+  const [file, setFile] = useState<File | null>(null);
+  const [fileContent, setFileContent] = useState<string | null>(null);
+
+  // Edit configuration
+  const [config, setConfig] = useState<EditConfig>({
+    style: STYLE_PRESETS[0].id,
+    colorGrade: CINEMATIC_LUTS[0].id,
+    effectPreset: EFFECT_PRESETS[1].id,
+    graphics: [],
+    versions: ['rough_cut'],
+    exportFormat: EXPORT_FORMATS[0].id,
+    model: AI_MODELS[0].id,
+    customRules: STYLE_PRESETS[0].defaultRules,
     formatTools: ['scene_detection', 'auto_color'],
-     transitions: [],
-     shotAnalysisRules: {},
-     beatRules: ['cut_on_beat', 'transition_on_downbeat'],
-     directorIntent: null,
-     customIntent: '',
-   });
-  
+    transitions: [],
+    shotAnalysisRules: {},
+    beatRules: ['cut_on_beat', 'transition_on_downbeat'],
+    directorIntent: null,
+    customIntent: '',
+  });
+
   // Detected format
   const [detectedFormat, setDetectedFormat] = useState<VideoFormat | null>(null);
   const [detectedBPM, setDetectedBPM] = useState<number | null>(null);
@@ -126,45 +155,66 @@ import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/componen
   // Analysis results
   const [audioAnalysis, setAudioAnalysis] = useState<AudioAnalysisResult | null>(null);
   const [videoAnalysis, setVideoAnalysis] = useState<VideoAnalysisResult | null>(null);
-  const [colorSettings, setColorSettings] = useState<ColorSettings | null>(null);
+  const {
+    present: colorSettings,
+    set: setColorSettings,
+    undo: undoColor,
+    redo: redoColor,
+    reset: resetColorSettings,
+    canUndo: canUndoColor,
+    canRedo: canRedoColor,
+  } = useUndoRedo<FullColorSettings | null>(DEFAULT_COLOR_SETTINGS);
   const [effectOverrides, setEffectOverrides] = useState<EffectOverrides | null>(null);
- 
-   // Processing state
-   const [processingState, setProcessingState] = useState<ProcessingState>('idle');
-   const [progress, setProgress] = useState(0);
-   const [statusMessage, setStatusMessage] = useState('');
-   const [currentJob, setCurrentJob] = useState<JobData | null>(null);
-   const [outputXml, setOutputXml] = useState<string | null>(null);
- 
-   // Parse file when uploaded
-   useEffect(() => {
-     if (file) {
-      // For timeline files, read as text
+  const previewVideoRef = useRef<HTMLVideoElement | null>(null);
+  const lutThumbnails = useLiveLUTThumbnails(previewVideoRef, CINEMATIC_LUTS, { enabled: !!file });
+
+  // Processing state
+  const [processingState, setProcessingState] = useState<ProcessingState>('idle');
+  const [progress, setProgress] = useState(0);
+  const [statusMessage, setStatusMessage] = useState('');
+  const [currentJob, setCurrentJob] = useState<JobData | null>(null);
+  const [outputXml, setOutputXml] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<string>('style');
+
+  // Mobile-specific: collapsible media section
+  const [mediaCollapsed, setMediaCollapsed] = useState(false);
+
+  // Parse file when uploaded
+  useEffect(() => {
+    if (file) {
       const ext = file.name.toLowerCase().split('.').pop();
       if (ext === 'fcpxml' || ext === 'xml') {
         file.text().then(setFileContent);
       } else {
-        // For video files, we don't need to read the content
         setFileContent(null);
       }
-     } else {
-       setFileContent(null);
+    } else {
+      setFileContent(null);
       setDetectedFormat(null);
-     }
-   }, [file]);
- 
-   // Update custom rules when style changes
-   useEffect(() => {
-     const selectedStyle = STYLE_PRESETS.find(p => p.id === config.style);
-     if (selectedStyle) {
-       setConfig(prev => ({ ...prev, customRules: selectedStyle.defaultRules }));
-     }
-   }, [config.style]);
- 
-   const updateConfig = (updates: Partial<EditConfig>) => {
-     setConfig(prev => ({ ...prev, ...updates }));
-   };
- 
+    }
+  }, [file]);
+
+  // Update custom rules when style changes
+  useEffect(() => {
+    const selectedStyle = STYLE_PRESETS.find(p => p.id === config.style);
+    if (selectedStyle) {
+      setConfig(prev => ({ ...prev, customRules: selectedStyle.defaultRules }));
+    }
+  }, [config.style]);
+
+  // Reset color settings whenever the LUT changes
+  useEffect(() => {
+    const lut = CINEMATIC_LUTS.find(l => l.id === config.colorGrade);
+    if (lut) {
+      resetColorSettings(getLUTDefaults(lut));
+    } else {
+      resetColorSettings(DEFAULT_COLOR_SETTINGS);
+    }
+  }, [config.colorGrade, resetColorSettings]);
+
+  const updateConfig = (updates: Partial<EditConfig>) => {
+    setConfig(prev => ({ ...prev, ...updates }));
+  };
 
   const handleFormatDetected = (format: VideoFormat | null) => {
     setDetectedFormat(format);
@@ -179,7 +229,7 @@ import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/componen
     setVideoAnalysis(result);
   };
 
-  const handleColorSettingsChange = (settings: ColorSettings) => {
+  const handleColorSettingsChange = (settings: FullColorSettings) => {
     setColorSettings(settings);
   };
 
@@ -197,16 +247,8 @@ import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/componen
     const beatRules = config.beatRules || [];
     const shotRules = config.shotAnalysisRules || {};
 
-    // Color values — custom overrides or LUT defaults
-    const cs = colorSettings ?? (lut ? {
-      contrast: lut.settings.contrast,
-      saturation: lut.settings.saturation,
-      temperature: lut.settings.temperature,
-      shadows: lut.settings.shadows,
-      highlights: lut.settings.highlights,
-    } : null);
+    const cs: FullColorSettings | null = colorSettings ?? (lut ? getLUTDefaults(lut) : null);
 
-    // Enabled effects after overrides
     const enabledTransitions = effects
       ? effects.transitions.filter(t => !effectOverrides?.disabledTransitions.includes(t))
       : [];
@@ -214,7 +256,6 @@ import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/componen
       ? effects.motionEffects.filter(e => !effectOverrides?.disabledMotionEffects.includes(e))
       : [];
 
-    // Scene change timestamps from real analysis
     const sceneTimestamps = videoAnalysis?.sceneChanges.map(sc => sc.timestamp) || [];
 
     return `
@@ -232,9 +273,13 @@ LUT: ${lut?.name || 'None'}
 ${cs ? `Custom Color Settings:
 - Contrast: ${cs.contrast}
 - Saturation: ${cs.saturation}
-- Temperature: ${cs.temperature}K shift
+- Temperature: ${cs.temperature} shift
+- Tint: ${cs.tint}
 - Shadows: ${cs.shadows}
-- Highlights: ${cs.highlights}` : ''}
+- Highlights: ${cs.highlights}
+- Lift: R ${cs.lift.r.toFixed(2)}, G ${cs.lift.g.toFixed(2)}, B ${cs.lift.b.toFixed(2)}
+- Gamma: R ${cs.gamma.r.toFixed(2)}, G ${cs.gamma.g.toFixed(2)}, B ${cs.gamma.b.toFixed(2)}
+- Gain: R ${cs.gain.r.toFixed(2)}, G ${cs.gain.g.toFixed(2)}, B ${cs.gain.b.toFixed(2)}` : ''}
 
 === EFFECTS & TRANSITIONS ===
 Mode: ${effects?.name || 'None'}
@@ -279,21 +324,21 @@ ${versions.map(v => `- ${v?.name} (${v?.duration}, ${v?.aspectRatio})`).join('\n
 Apply all these settings to create a professional edit. Output valid FCPXML only.
 `;
   };
- 
-   // Track active timers for cleanup
-   const timersRef = useRef<number[]>([]);
 
-   const clearAllTimers = useCallback(() => {
-     timersRef.current.forEach(id => clearInterval(id));
-     timersRef.current = [];
-   }, []);
+  // Track active timers for cleanup
+  const timersRef = useRef<number[]>([]);
 
-   // Cleanup timers on unmount
-   useEffect(() => {
-     return () => clearAllTimers();
-   }, [clearAllTimers]);
+  const clearAllTimers = useCallback(() => {
+    timersRef.current.forEach(id => clearInterval(id));
+    timersRef.current = [];
+  }, []);
 
-   const handleGenerate = async () => {
+  // Cleanup timers on unmount
+  useEffect(() => {
+    return () => clearAllTimers();
+  }, [clearAllTimers]);
+
+  const handleGenerate = async () => {
     if (!file) return;
 
     const isTimelineFile = detectedFormat?.category === 'timeline';
@@ -307,147 +352,554 @@ Apply all these settings to create a professional edit. Output valid FCPXML only
       return;
     }
 
-     try {
-       clearAllTimers();
-       setProcessingState('uploading');
-       setProgress(10);
-       setCurrentJob(null);
-       setOutputXml(null);
-       setStatusMessage('Analyzing source media...');
+    try {
+      clearAllTimers();
+      setProcessingState('uploading');
+      setProgress(10);
+      setCurrentJob(null);
+      setOutputXml(null);
+      setStatusMessage('Analyzing source media...');
 
-       const progressInterval = window.setInterval(() => {
-         setProgress(p => Math.min(p + 3, 35));
-       }, 200);
-       timersRef.current.push(progressInterval);
+      const progressInterval = window.setInterval(() => {
+        setProgress(p => Math.min(p + 3, 35));
+      }, 200);
+      timersRef.current.push(progressInterval);
 
-       const statusTimer1 = window.setTimeout(() => {
-         setStatusMessage('Applying style and color grading...');
-       }, 1000);
-       timersRef.current.push(statusTimer1);
+      const statusTimer1 = window.setTimeout(() => {
+        setStatusMessage('Applying style and color grading...');
+      }, 1000);
+      timersRef.current.push(statusTimer1);
 
-       setProcessingState('processing');
-       setProgress(40);
-       clearInterval(progressInterval);
+      setProcessingState('processing');
+      setProgress(40);
+      clearInterval(progressInterval);
 
-       const aiProgressInterval = window.setInterval(() => {
-         setProgress(p => {
-           if (p < 60) return p + 2;
-           if (p < 80) return p + 1;
-           return Math.min(p + 0.5, 92);
-         });
-       }, 400);
-       timersRef.current.push(aiProgressInterval);
+      const aiProgressInterval = window.setInterval(() => {
+        setProgress(p => {
+          if (p < 60) return p + 2;
+          if (p < 80) return p + 1;
+          return Math.min(p + 0.5, 92);
+        });
+      }, 400);
+      timersRef.current.push(aiProgressInterval);
 
-       const t2 = window.setTimeout(() => setStatusMessage('Generating transitions and effects...'), 2000);
-       const t3 = window.setTimeout(() => setStatusMessage('Building timeline structure...'), 4000);
-       const t4 = window.setTimeout(() => setStatusMessage('Rendering version outputs...'), 6000);
-       timersRef.current.push(t2, t3, t4);
+      const t2 = window.setTimeout(() => setStatusMessage('Generating transitions and effects...'), 2000);
+      const t3 = window.setTimeout(() => setStatusMessage('Building timeline structure...'), 4000);
+      const t4 = window.setTimeout(() => setStatusMessage('Rendering version outputs...'), 6000);
+      timersRef.current.push(t2, t3, t4);
 
-        // Client-side timeout to prevent infinite hang if edge function is killed
-       const CLIENT_TIMEOUT_MS = 90_000; // 90 seconds
-       const invokePromise = supabase.functions.invoke('process-video', {
-         body: {
-            fileContent: isTimelineFile ? fileContent : null,
-           fileName: file.name,
-           preset: config.style,
-           model: config.model,
-           styleRules: buildFullPrompt(),
-           sessionId: getSessionId(),
-            fileType: detectedFormat?.id || 'unknown',
-            isVideoFile: !isTimelineFile,
-           advancedConfig: {
-             colorGrade: config.colorGrade,
-             effectPreset: config.effectPreset,
-             graphics: config.graphics,
-             versions: config.versions,
-             exportFormat: config.exportFormat,
-              formatTools: config.formatTools,
-           },
-           analysisMetadata: {
-             audio: audioAnalysis ? {
-               bpm: audioAnalysis.bpm,
-               duration: audioAnalysis.duration,
-               beatCount: audioAnalysis.beatTimestamps.length,
-             } : null,
-             video: videoAnalysis ? {
-               sceneCount: videoAnalysis.sceneChanges.length,
-               duration: videoAnalysis.duration,
-               averageBrightness: videoAnalysis.averageBrightness,
-               frameCount: videoAnalysis.frameCount,
-             } : null,
-             color: colorSettings,
-             effects: effectOverrides,
-             detectedFormat: detectedFormat?.id ?? null,
-           },
-         },
-       });
+      const CLIENT_TIMEOUT_MS = 90_000;
+      const invokePromise = supabase.functions.invoke('process-video', {
+        body: {
+          fileContent: isTimelineFile ? fileContent : null,
+          fileName: file.name,
+          preset: config.style,
+          model: config.model,
+          styleRules: buildFullPrompt(),
+          sessionId: getSessionId(),
+          fileType: detectedFormat?.id || 'unknown',
+          isVideoFile: !isTimelineFile,
+          advancedConfig: {
+            colorGrade: config.colorGrade,
+            effectPreset: config.effectPreset,
+            graphics: config.graphics,
+            versions: config.versions,
+            exportFormat: config.exportFormat,
+            formatTools: config.formatTools,
+          },
+          analysisMetadata: {
+            audio: audioAnalysis ? {
+              bpm: audioAnalysis.bpm,
+              duration: audioAnalysis.duration,
+              beatCount: audioAnalysis.beatTimestamps.length,
+            } : null,
+            video: videoAnalysis ? {
+              sceneCount: videoAnalysis.sceneChanges.length,
+              duration: videoAnalysis.duration,
+              averageBrightness: videoAnalysis.averageBrightness,
+              frameCount: videoAnalysis.frameCount,
+            } : null,
+            color: colorSettings,
+            effects: effectOverrides,
+            detectedFormat: detectedFormat?.id ?? null,
+          },
+        },
+      });
 
-       const timeoutPromise = new Promise<never>((_, reject) => {
-         const id = window.setTimeout(() => {
-           reject(new Error('Processing timed out. The AI took too long to respond. Please try a faster model or simpler input.'));
-         }, CLIENT_TIMEOUT_MS);
-         timersRef.current.push(id);
-       });
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        const id = window.setTimeout(() => {
+          reject(new Error('Processing timed out. The AI took too long to respond. Please try a faster model or simpler input.'));
+        }, CLIENT_TIMEOUT_MS);
+        timersRef.current.push(id);
+      });
 
-       const { data: fnData, error: fnError } = await Promise.race([invokePromise, timeoutPromise]);
+      const { data: fnData, error: fnError } = await Promise.race([invokePromise, timeoutPromise]);
 
-       clearAllTimers();
+      clearAllTimers();
 
-       if (fnError) {
-         throw new Error(fnError.message);
-       }
+      if (fnError) {
+        throw new Error(fnError.message);
+      }
 
-       if (!fnData?.success) {
-         throw new Error(fnData?.error || 'Processing failed');
-       }
+      if (!fnData?.success) {
+        throw new Error(fnData?.error || 'Processing failed');
+      }
 
-       setProgress(100);
-       setProcessingState('completed');
-       setStatusMessage('All versions rendered successfully!');
-       setCurrentJob(fnData.job);
-       setOutputXml(fnData.outputXml);
+      setProgress(100);
+      setProcessingState('completed');
+      setStatusMessage('All versions rendered successfully!');
+      setCurrentJob(fnData.job);
+      setOutputXml(fnData.outputXml);
 
-       toast({
-         title: 'Export Complete',
-         description: `${config.versions.length} version(s) rendered with ${STYLE_PRESETS.find(s => s.id === config.style)?.name} style.`
-       });
+      toast({
+        title: 'Export Complete',
+        description: `${config.versions.length} version(s) rendered with ${STYLE_PRESETS.find(s => s.id === config.style)?.name} style.`
+      });
 
-     } catch (err) {
-       clearAllTimers();
-       console.error('Processing error:', err);
-       setProcessingState('failed');
-       setStatusMessage(err instanceof Error ? err.message : 'An error occurred');
-       toast({
-         variant: 'destructive',
-         title: 'Processing Failed',
-         description: err instanceof Error ? err.message : 'Unknown error',
-       });
-     }
-   };
- 
-   const handleReset = () => {
-     setProcessingState('idle');
-     setProgress(0);
-     setStatusMessage('');
-     setCurrentJob(null);
-     setOutputXml(null);
-   };
- 
-   const isProcessing = processingState === 'uploading' || processingState === 'processing';
-   const canGenerate = !!file && !isProcessing;
-   const showOutput = !!(processingState === 'completed' && currentJob && outputXml);
+    } catch (err) {
+      clearAllTimers();
+      console.error('Processing error:', err);
+      setProcessingState('failed');
+      setStatusMessage(err instanceof Error ? err.message : 'An error occurred');
+      toast({
+        variant: 'destructive',
+        title: 'Processing Failed',
+        description: err instanceof Error ? err.message : 'Unknown error',
+      });
+    }
+  };
 
+  const handleReset = () => {
+    setProcessingState('idle');
+    setProgress(0);
+    setStatusMessage('');
+    setCurrentJob(null);
+    setOutputXml(null);
+  };
+
+  const isProcessing = processingState === 'uploading' || processingState === 'processing';
+  const canGenerate = !!file && !isProcessing;
+  const showOutput = !!(processingState === 'completed' && currentJob && outputXml);
+
+  // ── Shared panel content (used across all layouts) ──
+  const renderToolContent = () => (
+    <>
+      <TabsContent value="style" className="m-0 h-full data-[state=active]:animate-fade-in">
+        <PanelWrapper title="Style" icon={<Wand2 className="w-4 h-4" />}>
+          <StylePanel
+            style={config.style}
+            onStyleChange={(style) => updateConfig({ style })}
+            model={config.model}
+            onModelChange={(model) => updateConfig({ model })}
+            disabled={isProcessing}
+          />
+        </PanelWrapper>
+      </TabsContent>
+
+      <TabsContent value="color" className="m-0 h-full data-[state=active]:animate-fade-in">
+        <PanelWrapper title="Color" icon={<Palette className="w-4 h-4" />}>
+          <ColorPanel
+            colorGrade={config.colorGrade}
+            onColorGradeChange={(colorGrade) => {
+              updateConfig({ colorGrade });
+              const lut = CINEMATIC_LUTS.find(l => l.id === colorGrade);
+              resetColorSettings(lut ? getLUTDefaults(lut) : DEFAULT_COLOR_SETTINGS);
+            }}
+            settings={colorSettings}
+            onColorSettingsChange={handleColorSettingsChange}
+            lutThumbnails={lutThumbnails}
+            canUndo={canUndoColor}
+            canRedo={canRedoColor}
+            onUndo={undoColor}
+            onRedo={redoColor}
+            disabled={isProcessing}
+          />
+        </PanelWrapper>
+      </TabsContent>
+
+      <TabsContent value="effects" className="m-0 h-full data-[state=active]:animate-fade-in">
+        <PanelWrapper title="Effects" icon={<Zap className="w-4 h-4" />}>
+          <EffectsPanel
+            effectPreset={config.effectPreset}
+            onEffectPresetChange={(effectPreset) => { updateConfig({ effectPreset }); setEffectOverrides(null); }}
+            onEffectOverridesChange={handleEffectOverridesChange}
+            disabled={isProcessing}
+          />
+        </PanelWrapper>
+      </TabsContent>
+
+      <TabsContent value="graphics" className="m-0 h-full data-[state=active]:animate-fade-in">
+        <PanelWrapper title="Graphics" icon={<Type className="w-4 h-4" />}>
+          <GraphicsPanel
+            selectedGraphics={config.graphics}
+            onGraphicsChange={(graphics) => updateConfig({ graphics })}
+            disabled={isProcessing}
+          />
+        </PanelWrapper>
+      </TabsContent>
+
+      <TabsContent value="versions" className="m-0 h-full data-[state=active]:animate-fade-in">
+        <PanelWrapper title="Versions" icon={<Layers className="w-4 h-4" />}>
+          <MultiVersionPanel
+            selectedVersions={config.versions}
+            onVersionsChange={(versions) => updateConfig({ versions })}
+            isProcessing={isProcessing}
+            generatedVersions={showOutput ? ['full_edit'] : []}
+          />
+        </PanelWrapper>
+      </TabsContent>
+
+      <TabsContent value="tools" className="m-0 h-full data-[state=active]:animate-fade-in">
+        <PanelWrapper title="AI Tools" icon={<Wrench className="w-4 h-4" />}>
+          <FormatToolsPanel
+            format={detectedFormat}
+            selectedTools={config.formatTools}
+            onToolsChange={(formatTools) => updateConfig({ formatTools })}
+            disabled={isProcessing}
+          />
+        </PanelWrapper>
+      </TabsContent>
+
+      <TabsContent value="transitions" className="m-0 h-full data-[state=active]:animate-fade-in">
+        <PanelWrapper title="Transitions" icon={<ArrowRightLeft className="w-4 h-4" />}>
+          <TransitionsPanel
+            selectedTransitions={config.transitions}
+            onTransitionsChange={(transitions) => updateConfig({ transitions })}
+            disabled={isProcessing}
+          />
+        </PanelWrapper>
+      </TabsContent>
+
+      <TabsContent value="shots" className="m-0 h-full data-[state=active]:animate-fade-in">
+        <PanelWrapper title="Shots" icon={<Eye className="w-4 h-4" />}>
+          <ShotIntelligencePanel
+            analysisRules={config.shotAnalysisRules}
+            onRulesChange={(shotAnalysisRules) => updateConfig({ shotAnalysisRules })}
+            disabled={isProcessing}
+            file={file}
+            onAnalysisComplete={handleVideoAnalysisComplete}
+          />
+        </PanelWrapper>
+      </TabsContent>
+
+      <TabsContent value="beats" className="m-0 h-full data-[state=active]:animate-fade-in">
+        <PanelWrapper title="Beats" icon={<Music className="w-4 h-4" />}>
+          <BeatEnginePanel
+            file={file}
+            beatRules={config.beatRules}
+            onBeatRulesChange={(beatRules) => updateConfig({ beatRules })}
+            onAnalysisComplete={handleAudioAnalysisComplete}
+            disabled={isProcessing}
+          />
+        </PanelWrapper>
+      </TabsContent>
+
+      <TabsContent value="intent" className="m-0 h-full data-[state=active]:animate-fade-in">
+        <PanelWrapper title="Intent" icon={<Compass className="w-4 h-4" />}>
+          <DirectorIntentPanel
+            selectedIntent={config.directorIntent}
+            customIntent={config.customIntent}
+            onIntentChange={(directorIntent) => updateConfig({ directorIntent })}
+            onCustomIntentChange={(customIntent) => updateConfig({ customIntent })}
+            disabled={isProcessing}
+          />
+        </PanelWrapper>
+      </TabsContent>
+
+      <TabsContent value="export" className="m-0 h-full data-[state=active]:animate-fade-in">
+        <PanelWrapper title="Export" icon={<Sparkles className="w-4 h-4" />}>
+          <ExportPanel
+            exportFormat={config.exportFormat}
+            onExportFormatChange={(exportFormat) => updateConfig({ exportFormat })}
+            onGenerate={handleGenerate}
+            canGenerate={canGenerate}
+            isProcessing={isProcessing}
+            progress={progress}
+            statusMessage={statusMessage}
+            processingState={processingState}
+          />
+        </PanelWrapper>
+      </TabsContent>
+
+      <TabsContent value="exports" className="m-0 h-full data-[state=active]:animate-fade-in">
+        <PanelWrapper title="My Exports" icon={<FolderOpen className="w-4 h-4" />}>
+          <ExportsLibrary
+            records={exportRecords}
+            onRedownload={redownloadExport}
+            onRemove={removeExport}
+            onClearAll={clearExports}
+          />
+        </PanelWrapper>
+      </TabsContent>
+    </>
+  );
+
+  const renderSidePanel = () => (
+    <>
+      {showOutput && (
+        <div className="mb-4">
+          <FeedbackPanel
+            config={config}
+            timelineData={{
+              duration: 180,
+              bpm: detectedBPM || 128,
+              sections: ['Intro', 'Verse', 'Chorus', 'Bridge', 'Outro'],
+            }}
+            showAfterProcessing={showOutput}
+          />
+        </div>
+      )}
+      <div className="mb-4">
+        <CustomRulesEditorEnhanced
+          value={config.customRules}
+          onChange={(customRules) => updateConfig({ customRules })}
+          disabled={isProcessing}
+        />
+      </div>
+      <OutputPanel
+        job={currentJob}
+        outputXml={outputXml}
+        onNewEdit={handleReset}
+        config={config}
+        showOutput={showOutput}
+        onExportSaved={addExport}
+      />
+    </>
+  );
+
+  // ══════════════════════════════════════════════════════════
+  // MOBILE LAYOUT (< 768px)
+  // Full-screen scrollable with bottom navigation bar
+  // ══════════════════════════════════════════════════════════
+  if (device === 'mobile') {
+    return (
+      <div className="min-h-screen bg-background flex flex-col">
+        <Header />
+
+        {/* Scrollable main content */}
+        <main className="flex-1 overflow-auto pb-20 safe-area-bottom">
+          <div className="px-3 py-3 space-y-3">
+            {/* Collapsible media section */}
+            <button
+              onClick={() => setMediaCollapsed(!mediaCollapsed)}
+              className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl bg-card/80 border border-border/40 backdrop-blur-sm"
+            >
+              <div className="flex items-center gap-2">
+                <Video className="w-4 h-4 text-primary" />
+                <span className="text-xs font-semibold">
+                  {file ? file.name : 'Source Media & Preview'}
+                </span>
+                {file && (
+                  <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-success/15 text-success font-medium">Ready</span>
+                )}
+              </div>
+              {mediaCollapsed ? <ChevronDown className="w-4 h-4 text-muted-foreground" /> : <ChevronUp className="w-4 h-4 text-muted-foreground" />}
+            </button>
+
+            {!mediaCollapsed && (
+              <div className="space-y-3 animate-fade-in">
+                <SourcePanel
+                  file={file}
+                  onFileChange={setFile}
+                  fileContent={fileContent}
+                  disabled={isProcessing}
+                  onFormatDetected={handleFormatDetected}
+                />
+                <VideoPreviewPanel
+                  file={file}
+                  detectedFormat={detectedFormat}
+                  colorGrade={config.colorGrade}
+                  effectPreset={config.effectPreset}
+                  isProcessing={isProcessing}
+                  colorSettings={colorSettings}
+                  beatTimestamps={audioAnalysis?.beatTimestamps}
+                  sceneChangeTimestamps={videoAnalysis?.sceneChanges.map(sc => sc.timestamp)}
+                  videoRef={previewVideoRef}
+                />
+                <TimelineVisualizerDetailed
+                  fileContent={fileContent}
+                  isProcessing={isProcessing}
+                  detectedFormat={detectedFormat}
+                  detectedBPM={detectedBPM}
+                />
+              </div>
+            )}
+
+            {/* Tool panel content */}
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1">
+              <TabsList className="sr-only">
+                {toolSections.map((section) => (
+                  <TabsTrigger key={section.id} value={section.id}>
+                    {section.label}
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+              <div className="min-h-[50vh]">
+                {renderToolContent()}
+              </div>
+            </Tabs>
+
+            {/* Side panel (rules + output) below tools on mobile */}
+            <div className="space-y-3 pt-2 border-t border-border/30">
+              {renderSidePanel()}
+            </div>
+          </div>
+        </main>
+
+        {/* ── Bottom navigation bar ── */}
+        <nav className="fixed bottom-0 inset-x-0 z-50 bg-card/95 backdrop-blur-xl border-t border-border/40 safe-area-bottom">
+          <div className="flex overflow-x-auto scrollbar-hide gap-0.5 px-1 py-1.5">
+            {toolSections.map((section) => {
+              const active = activeTab === section.id;
+              return (
+                <button
+                  key={section.id}
+                  onClick={() => setActiveTab(section.id)}
+                  className={cn(
+                    'flex-shrink-0 flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-lg transition-all min-w-[52px]',
+                    active
+                      ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/25'
+                      : 'text-muted-foreground active:bg-muted/50'
+                  )}
+                >
+                  <div className="w-5 h-5 flex items-center justify-center">
+                    {section.icon}
+                  </div>
+                  <span className={cn('text-[9px] font-semibold leading-none', active && 'text-primary-foreground')}>
+                    {section.label}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </nav>
+
+        {isProcessing && (
+          <ProcessingOverlay
+            progress={progress}
+            message={statusMessage}
+            config={config}
+          />
+        )}
+      </div>
+    );
+  }
+
+  // ══════════════════════════════════════════════════════════
+  // TABLET LAYOUT (768px - 1023px)
+  // Two-column: media + tools on left, output on right
+  // Bottom nav for tool switching
+  // ══════════════════════════════════════════════════════════
+  if (device === 'tablet') {
+    return (
+      <div className="min-h-screen bg-background flex flex-col">
+        <Header />
+
+        <main className="flex-1 overflow-hidden flex">
+          {/* Left column: media + tools */}
+          <div className="flex-1 overflow-auto pb-16">
+            <div className="p-4 space-y-4">
+              {/* Media row - 2 column on tablet */}
+              <div className="grid grid-cols-2 gap-3">
+                <SourcePanel
+                  file={file}
+                  onFileChange={setFile}
+                  fileContent={fileContent}
+                  disabled={isProcessing}
+                  onFormatDetected={handleFormatDetected}
+                />
+                <VideoPreviewPanel
+                  file={file}
+                  detectedFormat={detectedFormat}
+                  colorGrade={config.colorGrade}
+                  effectPreset={config.effectPreset}
+                  isProcessing={isProcessing}
+                  colorSettings={colorSettings}
+                  beatTimestamps={audioAnalysis?.beatTimestamps}
+                  sceneChangeTimestamps={videoAnalysis?.sceneChanges.map(sc => sc.timestamp)}
+                  videoRef={previewVideoRef}
+                />
+              </div>
+
+              <TimelineVisualizerDetailed
+                fileContent={fileContent}
+                isProcessing={isProcessing}
+                detectedFormat={detectedFormat}
+                detectedBPM={detectedBPM}
+              />
+
+              {/* Tool content */}
+              <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1">
+                <TabsList className="sr-only">
+                  {toolSections.map((section) => (
+                    <TabsTrigger key={section.id} value={section.id}>
+                      {section.label}
+                    </TabsTrigger>
+                  ))}
+                </TabsList>
+                {renderToolContent()}
+              </Tabs>
+            </div>
+          </div>
+
+          {/* Right column: rules + output */}
+          <div className="w-[320px] border-l border-border/40 overflow-auto pb-16 bg-card/20">
+            <div className="p-4 space-y-4">
+              {renderSidePanel()}
+            </div>
+          </div>
+        </main>
+
+        {/* ── Bottom navigation bar for tablets ── */}
+        <nav className="fixed bottom-0 inset-x-0 z-50 bg-card/95 backdrop-blur-xl border-t border-border/40">
+          <div className="flex justify-center gap-1 px-2 py-2">
+            {toolSections.map((section) => {
+              const active = activeTab === section.id;
+              return (
+                <button
+                  key={section.id}
+                  onClick={() => setActiveTab(section.id)}
+                  className={cn(
+                    'flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all',
+                    active
+                      ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/20'
+                      : 'text-muted-foreground hover:bg-muted/50'
+                  )}
+                >
+                  {section.icon}
+                  {active && <span>{section.label}</span>}
+                </button>
+              );
+            })}
+          </div>
+        </nav>
+
+        {isProcessing && (
+          <ProcessingOverlay
+            progress={progress}
+            message={statusMessage}
+            config={config}
+          />
+        )}
+      </div>
+    );
+  }
+
+  // ══════════════════════════════════════════════════════════
+  // DESKTOP LAYOUT (>= 1024px)
+  // Full resizable panel layout with vertical tool rail
+  // ══════════════════════════════════════════════════════════
   return (
-   <div className="min-h-screen bg-background">
-       <Header />
-       
+    <div className="min-h-screen bg-background">
+      <Header />
+
       <main className="h-[calc(100vh-56px)] overflow-hidden">
         <ResizablePanelGroup direction="vertical" className="h-full">
           {/* Top section - Source & Timeline Preview */}
           <ResizablePanel defaultSize={35} minSize={15} maxSize={70} className="overflow-hidden">
             <div className="h-full bg-card/30 backdrop-blur-sm overflow-auto">
               <div className="px-4 py-4">
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                <div className="grid grid-cols-3 gap-4">
                   <SourcePanel
                     file={file}
                     onFileChange={setFile}
@@ -464,6 +916,7 @@ Apply all these settings to create a professional edit. Output valid FCPXML only
                     colorSettings={colorSettings}
                     beatTimestamps={audioAnalysis?.beatTimestamps}
                     sceneChangeTimestamps={videoAnalysis?.sceneChanges.map(sc => sc.timestamp)}
+                    videoRef={previewVideoRef}
                   />
                   <TimelineVisualizerDetailed
                     fileContent={fileContent}
@@ -482,269 +935,75 @@ Apply all these settings to create a professional edit. Output valid FCPXML only
           <ResizablePanel defaultSize={65} minSize={30} className="overflow-hidden">
             <div className="px-4 py-5 h-full">
               <ResizablePanelGroup direction="horizontal" className="h-full rounded-lg">
-               {/* Left - Tool Tabs */}
-               <ResizablePanel defaultSize={65} minSize={40} maxSize={85} className="overflow-hidden">
-                 <Tabs defaultValue="style" className="h-full flex flex-col">
-                  <TabsList className="w-full justify-start bg-card/50 backdrop-blur-sm border border-border/40 p-1.5 h-auto flex-wrap gap-1.5 rounded-xl">
-                    <TabsTrigger 
-                      value="style" 
-                      className="gap-2 text-xs px-4 py-2 rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg data-[state=active]:shadow-primary/20 transition-all"
-                    >
-                      <Wand2 className="w-4 h-4" />
-                       Style
-                     </TabsTrigger>
-                    <TabsTrigger 
-                      value="color" 
-                      className="gap-2 text-xs px-4 py-2 rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg data-[state=active]:shadow-primary/20 transition-all"
-                    >
-                      <Palette className="w-4 h-4" />
-                       Color
-                     </TabsTrigger>
-                    <TabsTrigger 
-                      value="effects" 
-                      className="gap-2 text-xs px-4 py-2 rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg data-[state=active]:shadow-primary/20 transition-all"
-                    >
-                      <Zap className="w-4 h-4" />
-                       Effects
-                     </TabsTrigger>
-                    <TabsTrigger 
-                      value="graphics" 
-                      className="gap-2 text-xs px-4 py-2 rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg data-[state=active]:shadow-primary/20 transition-all"
-                    >
-                      <Type className="w-4 h-4" />
-                       Graphics
-                     </TabsTrigger>
-                    <TabsTrigger 
-                      value="versions" 
-                      className="gap-2 text-xs px-4 py-2 rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg data-[state=active]:shadow-primary/20 transition-all"
-                    >
-                      <Layers className="w-4 h-4" />
-                       Versions
-                     </TabsTrigger>
-                    <TabsTrigger 
-                      value="tools" 
-                      className="gap-2 text-xs px-4 py-2 rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg data-[state=active]:shadow-primary/20 transition-all"
-                    >
-                      <Wrench className="w-4 h-4" />
-                       AI Tools
-                     </TabsTrigger>
-                    <TabsTrigger 
-                      value="transitions" 
-                      className="gap-2 text-xs px-4 py-2 rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg data-[state=active]:shadow-primary/20 transition-all"
-                    >
-                      <ArrowRightLeft className="w-4 h-4" />
-                       Transitions
-                    </TabsTrigger>
-                    <TabsTrigger 
-                      value="shots" 
-                      className="gap-2 text-xs px-4 py-2 rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg data-[state=active]:shadow-primary/20 transition-all"
-                    >
-                      <Eye className="w-4 h-4" />
-                       Shots
-                    </TabsTrigger>
-                    <TabsTrigger 
-                      value="beats" 
-                      className="gap-2 text-xs px-4 py-2 rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg data-[state=active]:shadow-primary/20 transition-all"
-                    >
-                      <Music className="w-4 h-4" />
-                       Beats
-                    </TabsTrigger>
-                    <TabsTrigger 
-                      value="intent" 
-                      className="gap-2 text-xs px-4 py-2 rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg data-[state=active]:shadow-primary/20 transition-all"
-                    >
-                      <Compass className="w-4 h-4" />
-                       Intent
-                    </TabsTrigger>
-                    <TabsTrigger 
-                      value="export" 
-                      className="gap-2 text-xs px-4 py-2 rounded-lg data-[state=active]:bg-gradient-to-r data-[state=active]:from-primary data-[state=active]:to-accent data-[state=active]:text-primary-foreground data-[state=active]:shadow-lg data-[state=active]:shadow-primary/20 transition-all"
-                    >
-                      <Sparkles className="w-4 h-4" />
-                       Export
-                     </TabsTrigger>
-                   </TabsList>
- 
-                  <div className="flex-1 overflow-auto mt-5 pr-1">
-                     <TabsContent value="style" className="m-0 h-full">
-                       <PanelWrapper title="Style" icon={<Wand2 className="w-4 h-4" />}>
-                         <StylePanel
-                           style={config.style}
-                           onStyleChange={(style) => updateConfig({ style })}
-                           model={config.model}
-                           onModelChange={(model) => updateConfig({ model })}
-                           disabled={isProcessing}
-                         />
-                       </PanelWrapper>
-                     </TabsContent>
- 
-                     <TabsContent value="color" className="m-0 h-full">
-                       <PanelWrapper title="Color" icon={<Palette className="w-4 h-4" />}>
-                         <ColorPanel
-                           colorGrade={config.colorGrade}
-                           onColorGradeChange={(colorGrade) => { updateConfig({ colorGrade }); setColorSettings(null); }}
-                           onColorSettingsChange={handleColorSettingsChange}
-                           disabled={isProcessing}
-                         />
-                       </PanelWrapper>
-                     </TabsContent>
- 
-                     <TabsContent value="effects" className="m-0 h-full">
-                       <PanelWrapper title="Effects" icon={<Zap className="w-4 h-4" />}>
-                         <EffectsPanel
-                           effectPreset={config.effectPreset}
-                           onEffectPresetChange={(effectPreset) => { updateConfig({ effectPreset }); setEffectOverrides(null); }}
-                           onEffectOverridesChange={handleEffectOverridesChange}
-                           disabled={isProcessing}
-                         />
-                       </PanelWrapper>
-                     </TabsContent>
- 
-                     <TabsContent value="graphics" className="m-0 h-full">
-                       <PanelWrapper title="Graphics" icon={<Type className="w-4 h-4" />}>
-                         <GraphicsPanel
-                           selectedGraphics={config.graphics}
-                           onGraphicsChange={(graphics) => updateConfig({ graphics })}
-                           disabled={isProcessing}
-                         />
-                       </PanelWrapper>
-                     </TabsContent>
- 
-                     <TabsContent value="versions" className="m-0 h-full">
-                       <PanelWrapper title="Versions" icon={<Layers className="w-4 h-4" />}>
-                         <MultiVersionPanel
-                           selectedVersions={config.versions}
-                           onVersionsChange={(versions) => updateConfig({ versions })}
-                           isProcessing={isProcessing}
-                           generatedVersions={showOutput ? ['full_edit'] : []}
-                         />
-                       </PanelWrapper>
-                     </TabsContent>
-                     
-                     <TabsContent value="tools" className="m-0 h-full">
-                       <PanelWrapper title="AI Tools" icon={<Wrench className="w-4 h-4" />}>
-                         <FormatToolsPanel
-                           format={detectedFormat}
-                           selectedTools={config.formatTools}
-                           onToolsChange={(formatTools) => updateConfig({ formatTools })}
-                           disabled={isProcessing}
-                         />
-                       </PanelWrapper>
-                     </TabsContent>
-                     
-                     <TabsContent value="transitions" className="m-0 h-full">
-                       <PanelWrapper title="Transitions" icon={<ArrowRightLeft className="w-4 h-4" />}>
-                         <TransitionsPanel
-                           selectedTransitions={config.transitions}
-                           onTransitionsChange={(transitions) => updateConfig({ transitions })}
-                           disabled={isProcessing}
-                         />
-                       </PanelWrapper>
-                     </TabsContent>
-                     
-                     <TabsContent value="shots" className="m-0 h-full">
-                       <PanelWrapper title="Shots" icon={<Eye className="w-4 h-4" />}>
-                         <ShotIntelligencePanel
-                           analysisRules={config.shotAnalysisRules}
-                           onRulesChange={(shotAnalysisRules) => updateConfig({ shotAnalysisRules })}
-                           disabled={isProcessing}
-                           file={file}
-                           onAnalysisComplete={handleVideoAnalysisComplete}
-                         />
-                       </PanelWrapper>
-                     </TabsContent>
-                     
-                     <TabsContent value="beats" className="m-0 h-full">
-                       <PanelWrapper title="Beats" icon={<Music className="w-4 h-4" />}>
-                         <BeatEnginePanel
-                           file={file}
-                           beatRules={config.beatRules}
-                           onBeatRulesChange={(beatRules) => updateConfig({ beatRules })}
-                           onAnalysisComplete={handleAudioAnalysisComplete}
-                           disabled={isProcessing}
-                         />
-                       </PanelWrapper>
-                     </TabsContent>
-                     
-                     <TabsContent value="intent" className="m-0 h-full">
-                       <PanelWrapper title="Intent" icon={<Compass className="w-4 h-4" />}>
-                         <DirectorIntentPanel
-                           selectedIntent={config.directorIntent}
-                           customIntent={config.customIntent}
-                           onIntentChange={(directorIntent) => updateConfig({ directorIntent })}
-                           onCustomIntentChange={(customIntent) => updateConfig({ customIntent })}
-                           disabled={isProcessing}
-                         />
-                       </PanelWrapper>
-                     </TabsContent>
- 
-                     <TabsContent value="export" className="m-0 h-full">
-                       <PanelWrapper title="Export" icon={<Sparkles className="w-4 h-4" />}>
-                         <ExportPanel
-                           exportFormat={config.exportFormat}
-                           onExportFormatChange={(exportFormat) => updateConfig({ exportFormat })}
-                           onGenerate={handleGenerate}
-                           canGenerate={canGenerate}
-                           isProcessing={isProcessing}
-                           progress={progress}
-                           statusMessage={statusMessage}
-                           processingState={processingState}
-                         />
-                       </PanelWrapper>
-                     </TabsContent>
-                   </div>
-                 </Tabs>
-               </ResizablePanel>
+                {/* Left - Tool Tabs */}
+                <ResizablePanel defaultSize={65} minSize={40} maxSize={85} className="overflow-hidden">
+                  <div className="h-full flex gap-4">
+                    {/* Desktop vertical rail */}
+                    <div className="flex flex-col gap-2 w-[82px] pr-1">
+                      <div className="rounded-2xl border border-border/40 bg-card/50 backdrop-blur-sm shadow-sm p-2 flex flex-col gap-2 h-full">
+                        {toolSections.map((section) => {
+                          const active = activeTab === section.id;
+                          return (
+                            <button
+                              key={section.id}
+                              onClick={() => setActiveTab(section.id)}
+                              className={cn(
+                                'group w-full rounded-xl px-2 py-3 flex flex-col items-center gap-2 text-[10px] font-medium transition-all border',
+                                active
+                                  ? 'bg-primary text-primary-foreground border-primary shadow-primary/30 shadow-lg'
+                                  : 'bg-muted/30 text-muted-foreground border-border/50 hover:border-primary/40 hover:bg-primary/10'
+                              )}
+                            >
+                              <div className={cn(
+                                'w-10 h-10 rounded-lg flex items-center justify-center transition-all',
+                                active ? 'bg-primary-foreground/15 text-primary-foreground' : 'bg-background/70 text-foreground'
+                              )}>
+                                {section.icon}
+                              </div>
+                              <span className={cn('leading-tight text-center', active && 'text-primary-foreground')}>
+                                {section.label}
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
 
-               <ResizableHandle withHandle className="hover:bg-primary/10 transition-colors" />
+                    <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full flex-1 flex flex-col">
+                      <TabsList className="sr-only">
+                        {toolSections.map((section) => (
+                          <TabsTrigger key={section.id} value={section.id}>
+                            {section.label}
+                          </TabsTrigger>
+                        ))}
+                      </TabsList>
 
-               {/* Right - Output */}
-               <ResizablePanel defaultSize={35} minSize={15} maxSize={50} className="overflow-auto pl-4">
-                {/* AI Feedback Panel - Shows after processing */}
-                {showOutput && (
-                  <div className="mb-4">
-                    <FeedbackPanel
-                      config={config}
-                      timelineData={{
-                        duration: 180,
-                        bpm: detectedBPM || 128,
-                        sections: ['Intro', 'Verse', 'Chorus', 'Bridge', 'Outro'],
-                      }}
-                      showAfterProcessing={showOutput}
-                    />
+                      <div className="flex-1 overflow-auto pr-1">
+                        {renderToolContent()}
+                      </div>
+                    </Tabs>
                   </div>
-                )}
-                
-                 {/* Prominent Custom Rules Editor */}
-                 <div className="mb-4">
-                    <CustomRulesEditorEnhanced
-                     value={config.customRules}
-                     onChange={(customRules) => updateConfig({ customRules })}
-                     disabled={isProcessing}
-                   />
-                 </div>
-                 
-                 <OutputPanel
-                   job={currentJob}
-                   outputXml={outputXml}
-                   onNewEdit={handleReset}
-                   config={config}
-                   showOutput={showOutput}
-                 />
-               </ResizablePanel>
+                </ResizablePanel>
+
+                <ResizableHandle withHandle className="hover:bg-primary/10 transition-colors" />
+
+                {/* Right - Output */}
+                <ResizablePanel defaultSize={35} minSize={15} maxSize={50} className="overflow-auto pl-4">
+                  {renderSidePanel()}
+                </ResizablePanel>
               </ResizablePanelGroup>
             </div>
           </ResizablePanel>
         </ResizablePanelGroup>
-       </main>
- 
-       {isProcessing && (
-         <ProcessingOverlay 
-           progress={progress} 
-           message={statusMessage}
-           config={config}
-         />
-       )}
-     </div>
-   );
- }
+      </main>
+
+      {isProcessing && (
+        <ProcessingOverlay
+          progress={progress}
+          message={statusMessage}
+          config={config}
+        />
+      )}
+    </div>
+  );
+}
