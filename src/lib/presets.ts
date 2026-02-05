@@ -479,6 +479,64 @@
  // ============================================
  
  export const EXPORT_FORMATS: ExportFormat[] = [
+  // Video Formats - Render directly
+  {
+    id: 'mp4_h264',
+    name: 'MP4 (H.264)',
+    extension: '.mp4',
+    codec: 'H.264/AVC',
+    resolution: '4K',
+    bitrate: '50 Mbps',
+  },
+  {
+    id: 'mp4_hevc',
+    name: 'MP4 (H.265/HEVC)',
+    extension: '.mp4',
+    codec: 'H.265/HEVC',
+    resolution: '8K',
+    bitrate: '100 Mbps',
+  },
+  {
+    id: 'mov_prores',
+    name: 'ProRes 422 HQ',
+    extension: '.mov',
+    codec: 'ProRes 422 HQ',
+    resolution: '8K',
+    bitrate: '220 Mbps',
+  },
+  {
+    id: 'mov_prores_4444',
+    name: 'ProRes 4444',
+    extension: '.mov',
+    codec: 'ProRes 4444',
+    resolution: '8K',
+    bitrate: '330 Mbps',
+  },
+  {
+    id: 'dnxhd',
+    name: 'DNxHD/DNxHR',
+    extension: '.mxf',
+    codec: 'DNxHR HQX',
+    resolution: '8K',
+    bitrate: '185 Mbps',
+  },
+  {
+    id: 'webm_vp9',
+    name: 'WebM (VP9)',
+    extension: '.webm',
+    codec: 'VP9',
+    resolution: '4K',
+    bitrate: '35 Mbps',
+  },
+  {
+    id: 'avi_uncompressed',
+    name: 'Uncompressed AVI',
+    extension: '.avi',
+    codec: 'Uncompressed',
+    resolution: '4K',
+    bitrate: '1.5 Gbps',
+  },
+  // Project/Timeline Formats
    {
      id: 'fcpxml',
      name: 'Final Cut Pro XML',
