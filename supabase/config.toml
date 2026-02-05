@@ -1,4 +1,4 @@
  project_id = "bunfknfhytdolxluwjoh"
  
- [functions.process-fcpxml]
+[functions.process-video]
  verify_jwt = false
