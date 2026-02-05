@@ -3,6 +3,14 @@ import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { Lightbulb, Keyboard, Info, Zap, Star, X } from 'lucide-react';
 import { type TooltipHint } from './InsightTooltip';
+import { useIsMobile } from '@/hooks/use-mobile';
+import {
+  Drawer,
+  DrawerContent,
+  DrawerHeader,
+  DrawerTitle,
+  DrawerDescription,
+} from '@/components/ui/drawer';
 
 interface AutoShowTooltipProps {
   children: ReactNode;
@@ -73,6 +81,7 @@ export default function AutoShowTooltip({
   const [isVisible, setIsVisible] = useState(false);
   const [isDismissed, setIsDismissed] = useState(false);
   const containerRef = useRef<HTMLSpanElement>(null);
+  const isMobile = useIsMobile();
 
   // Check if tooltip was already seen
   useEffect(() => {
@@ -86,26 +95,28 @@ export default function AutoShowTooltip({
   useEffect(() => {
     if (disabled || isDismissed) return;
 
-    // Stagger based on priority
-    const staggeredDelay = showDelay + (priority * 800);
+    // Stagger based on priority - longer delays on mobile
+    const baseDelay = isMobile ? showDelay * 1.5 : showDelay;
+    const staggeredDelay = baseDelay + (priority * (isMobile ? 1200 : 800));
     
     const showTimer = setTimeout(() => {
       setIsVisible(true);
     }, staggeredDelay);
 
     return () => clearTimeout(showTimer);
-  }, [disabled, isDismissed, showDelay, priority]);
+  }, [disabled, isDismissed, showDelay, priority, isMobile]);
 
-  // Auto-hide after showing
+  // Auto-hide after showing - longer on mobile for reading
   useEffect(() => {
     if (!isVisible) return;
 
+    const mobileHideDelay = isMobile ? hideDelay * 1.2 : hideDelay;
     const hideTimer = setTimeout(() => {
       handleDismiss();
-    }, hideDelay);
+    }, mobileHideDelay);
 
     return () => clearTimeout(hideTimer);
-  }, [isVisible, hideDelay]);
+  }, [isVisible, hideDelay, isMobile]);
 
   const handleDismiss = () => {
     setIsVisible(false);
@@ -129,6 +140,111 @@ export default function AutoShowTooltip({
   const config = categoryConfig[category];
   const CategoryIcon = config.icon;
 
+  const tooltipContent = (
+    <div className="space-y-3">
+      {/* Header with dismiss */}
+      <div className="flex items-start gap-3">
+        <div className={cn('p-2 rounded-lg shrink-0', config.bg)}>
+          <CategoryIcon className={cn('w-5 h-5', config.color)} />
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-sm font-bold text-foreground">{hint.title}</p>
+            {!isMobile && (
+              <button
+                onClick={handleDismiss}
+                className="p-1 rounded-md hover:bg-muted transition-colors shrink-0"
+                aria-label="Dismiss"
+              >
+                <X className="w-4 h-4 text-muted-foreground" />
+              </button>
+            )}
+          </div>
+          <Badge variant="outline" className={cn('text-[9px] px-1.5 py-0 mt-1', config.color, config.bg)}>
+            {config.label}
+          </Badge>
+        </div>
+      </div>
+
+      {/* Description */}
+      <p className={cn("text-muted-foreground leading-relaxed", isMobile ? "text-base" : "text-sm")}>
+        {hint.description}
+      </p>
+
+      {/* Tip callout */}
+      {hint.tip && (
+        <div className="flex items-start gap-2 p-3 rounded-lg bg-warning/10 border border-warning/20">
+          <Lightbulb className="w-4 h-4 text-warning flex-shrink-0 mt-0.5" />
+          <p className={cn("text-warning-foreground leading-relaxed", isMobile ? "text-sm" : "text-xs")}>
+            {hint.tip}
+          </p>
+        </div>
+      )}
+
+      {/* Keyboard shortcut - hide on mobile */}
+      {hint.shortcut && !isMobile && (
+        <div className="flex items-center gap-2 pt-1">
+          <Keyboard className="w-4 h-4 text-muted-foreground" />
+          <span className="text-xs text-muted-foreground">Shortcut:</span>
+          <kbd className="px-2 py-1 text-xs font-mono font-bold bg-muted border border-border rounded-md">
+            {hint.shortcut}
+          </kbd>
+        </div>
+      )}
+
+      {/* Progress bar showing auto-dismiss */}
+      <div className="pt-2">
+        <div className="h-1 bg-muted rounded-full overflow-hidden">
+          <div 
+            className={cn('h-full rounded-full', config.bg.replace('/10', ''))}
+            style={{
+              animation: `shrink ${isMobile ? hideDelay * 1.2 : hideDelay}ms linear forwards`,
+            }}
+          />
+        </div>
+        <p className={cn("text-muted-foreground text-center mt-1", isMobile ? "text-xs" : "text-[10px]")}>
+          {isMobile ? "Swipe down or wait to dismiss" : "Click anywhere or wait to dismiss"}
+        </p>
+      </div>
+    </div>
+  );
+
+  // Mobile: Use bottom drawer
+  if (isMobile) {
+    return (
+      <span ref={containerRef} className="relative inline-flex">
+        {children}
+        
+        {/* Pulsing indicator when not yet shown */}
+        {!isDismissed && !isVisible && (
+          <span className="absolute -top-1 -right-1 w-3 h-3 bg-primary rounded-full animate-pulse z-10">
+            <span className="absolute inset-0 bg-primary rounded-full animate-ping opacity-75" />
+          </span>
+        )}
+
+        <Drawer open={isVisible} onOpenChange={(open) => !open && handleDismiss()}>
+          <DrawerContent className="max-h-[70vh]">
+            <DrawerHeader className="sr-only">
+              <DrawerTitle>{hint.title}</DrawerTitle>
+              <DrawerDescription>{hint.description}</DrawerDescription>
+            </DrawerHeader>
+            <div className="px-4 pb-6">
+              {tooltipContent}
+            </div>
+          </DrawerContent>
+        </Drawer>
+
+        <style>{`
+          @keyframes shrink {
+            from { width: 100%; }
+            to { width: 0%; }
+          }
+        `}</style>
+      </span>
+    );
+  }
+
+  // Desktop: Use floating tooltip
   return (
     <span ref={containerRef} className="relative inline-flex">
       {children}
@@ -169,69 +285,8 @@ export default function AutoShowTooltip({
             {/* Colored header bar */}
             <div className={cn('h-1', config.bg.replace('/10', ''))} />
             
-            <div className="p-4 space-y-3">
-              {/* Header with dismiss */}
-              <div className="flex items-start gap-3">
-                <div className={cn('p-2 rounded-lg shrink-0', config.bg)}>
-                  <CategoryIcon className={cn('w-5 h-5', config.color)} />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between gap-2">
-                    <p className="text-sm font-bold text-foreground">{hint.title}</p>
-                    <button
-                      onClick={handleDismiss}
-                      className="p-1 rounded-md hover:bg-muted transition-colors shrink-0"
-                      aria-label="Dismiss"
-                    >
-                      <X className="w-4 h-4 text-muted-foreground" />
-                    </button>
-                  </div>
-                  <Badge variant="outline" className={cn('text-[9px] px-1.5 py-0 mt-1', config.color, config.bg)}>
-                    {config.label}
-                  </Badge>
-                </div>
-              </div>
-
-              {/* Description */}
-              <p className="text-sm text-muted-foreground leading-relaxed">
-                {hint.description}
-              </p>
-
-              {/* Tip callout */}
-              {hint.tip && (
-                <div className="flex items-start gap-2 p-3 rounded-lg bg-warning/10 border border-warning/20">
-                  <Lightbulb className="w-4 h-4 text-warning flex-shrink-0 mt-0.5" />
-                  <p className="text-xs text-warning-foreground leading-relaxed">
-                    {hint.tip}
-                  </p>
-                </div>
-              )}
-
-              {/* Keyboard shortcut */}
-              {hint.shortcut && (
-                <div className="flex items-center gap-2 pt-1">
-                  <Keyboard className="w-4 h-4 text-muted-foreground" />
-                  <span className="text-xs text-muted-foreground">Shortcut:</span>
-                  <kbd className="px-2 py-1 text-xs font-mono font-bold bg-muted border border-border rounded-md">
-                    {hint.shortcut}
-                  </kbd>
-                </div>
-              )}
-
-              {/* Progress bar showing auto-dismiss */}
-              <div className="pt-2">
-                <div className="h-1 bg-muted rounded-full overflow-hidden">
-                  <div 
-                    className={cn('h-full rounded-full', config.bg.replace('/10', ''))}
-                    style={{
-                      animation: `shrink ${hideDelay}ms linear forwards`,
-                    }}
-                  />
-                </div>
-                <p className="text-[10px] text-muted-foreground text-center mt-1">
-                  Click anywhere or wait to dismiss
-                </p>
-              </div>
+            <div className="p-4">
+              {tooltipContent}
             </div>
           </div>
         </div>
