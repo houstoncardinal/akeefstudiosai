@@ -7,14 +7,15 @@
    theme: {
      container: {
        center: true,
-       padding: "2rem",
+       padding: "1.5rem",
        screens: {
-         "2xl": "1400px",
+         "2xl": "1600px",
        },
      },
      extend: {
        fontFamily: {
          sans: ["Inter", "system-ui", "sans-serif"],
+         display: ["Space Grotesk", "Inter", "system-ui", "sans-serif"],
          mono: ["JetBrains Mono", "Menlo", "monospace"],
        },
        colors: {
@@ -59,6 +60,10 @@
            DEFAULT: "hsl(var(--warning))",
            foreground: "hsl(var(--warning-foreground))",
          },
+         magenta: {
+           DEFAULT: "hsl(var(--magenta))",
+           foreground: "hsl(var(--magenta-foreground))",
+         },
          sidebar: {
            DEFAULT: "hsl(var(--sidebar-background))",
            foreground: "hsl(var(--sidebar-foreground))",
@@ -88,22 +93,20 @@
            from: { transform: "rotate(0deg)" },
            to: { transform: "rotate(360deg)" },
          },
-         "pulse-glow": {
-           "0%, 100%": { 
-             opacity: "1",
-             boxShadow: "0 0 20px hsl(var(--primary) / 0.3)" 
-           },
-           "50%": { 
-             opacity: "0.8",
-             boxShadow: "0 0 40px hsl(var(--primary) / 0.5)" 
-           },
+         "waveform": {
+           "0%, 100%": { transform: "scaleY(0.3)" },
+           "50%": { transform: "scaleY(1)" },
          },
        },
        animation: {
          "accordion-down": "accordion-down 0.2s ease-out",
          "accordion-up": "accordion-up 0.2s ease-out",
          "spin-slow": "spin-slow 3s linear infinite",
-         "pulse-glow": "pulse-glow 2s ease-in-out infinite",
+         "waveform": "waveform 0.5s ease-in-out infinite",
+       },
+       backgroundImage: {
+         "gradient-radial": "radial-gradient(var(--tw-gradient-stops))",
+         "gradient-conic": "conic-gradient(from 180deg at 50% 50%, var(--tw-gradient-stops))",
        },
      },
    },
