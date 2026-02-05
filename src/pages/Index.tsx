@@ -13,7 +13,7 @@
 import { type VideoFormat } from '@/lib/formats';
  import Header from '@/components/studio/Header';
  import SourcePanel from '@/components/studio/SourcePanel';
- import TimelineVisualizerAdvanced from '@/components/studio/TimelineVisualizerAdvanced';
+import TimelineVisualizerDetailed from '@/components/studio/TimelineVisualizerDetailed';
  import StylePanel from '@/components/studio/StylePanel';
  import ColorPanel from '@/components/studio/ColorPanel';
  import EffectsPanel from '@/components/studio/EffectsPanel';
@@ -30,6 +30,7 @@ import { type VideoFormat } from '@/lib/formats';
  import DirectorIntentPanel from '@/components/studio/DirectorIntentPanel';
 import FeedbackPanel from '@/components/studio/FeedbackPanel';
 import MultiVersionPanel from '@/components/studio/MultiVersionPanel';
+import CustomRulesEditorEnhanced from '@/components/studio/CustomRulesEditorEnhanced';
  import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
  import { 
    Palette, 
@@ -361,7 +362,7 @@ ${config.formatTools.length > 0 ? config.formatTools.join(', ') : 'Standard proc
                  disabled={isProcessing}
                   onFormatDetected={handleFormatDetected}
                />
-             <TimelineVisualizerAdvanced 
+              <TimelineVisualizerDetailed 
                  fileContent={fileContent}
                  isProcessing={isProcessing}
                   detectedFormat={detectedFormat}
@@ -580,7 +581,7 @@ ${config.formatTools.length > 0 ? config.formatTools.join(', ') : 'Standard proc
                 
                  {/* Prominent Custom Rules Editor */}
                  <div className="mb-4">
-                   <CustomRulesEditor
+                    <CustomRulesEditorEnhanced
                      value={config.customRules}
                      onChange={(customRules) => updateConfig({ customRules })}
                      disabled={isProcessing}
