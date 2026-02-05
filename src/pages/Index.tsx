@@ -1,18 +1,14 @@
- import { useState, useEffect } from 'react';
- import { useAuth } from '@/contexts/AuthContext';
+ import { useState, useEffect, useMemo } from 'react';
  import { supabase } from '@/integrations/supabase/client';
- import UploadZone from '@/components/dashboard/UploadZone';
- import ProcessingStatus from '@/components/dashboard/ProcessingStatus';
- import JobOutput from '@/components/dashboard/JobOutput';
- import { Button } from '@/components/ui/button';
- import { Label } from '@/components/ui/label';
- import { Textarea } from '@/components/ui/textarea';
- import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
- import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
  import { useToast } from '@/hooks/use-toast';
  import { EDIT_PRESETS, AI_MODELS } from '@/lib/presets';
- import { Sparkles, Zap, Info } from 'lucide-react';
- import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+ import Header from '@/components/pro/Header';
+ import UploadPanel from '@/components/pro/UploadPanel';
+ import PresetPanel from '@/components/pro/PresetPanel';
+ import ControlPanel from '@/components/pro/ControlPanel';
+ import OutputPanel from '@/components/pro/OutputPanel';
+ import TimelineVisualizer from '@/components/pro/TimelineVisualizer';
+ import ProcessingOverlay from '@/components/pro/ProcessingOverlay';
  
  type ProcessingState = 'idle' | 'uploading' | 'processing' | 'completed' | 'failed';
  
@@ -29,12 +25,22 @@
    completed_at: string | null;
  }
  
+ // Generate session ID for rate limiting
+ const getSessionId = () => {
+   let sessionId = localStorage.getItem('fcpxml_session_id');
+   if (!sessionId) {
+     sessionId = crypto.randomUUID();
+     localStorage.setItem('fcpxml_session_id', sessionId);
+   }
+   return sessionId;
+ };
+ 
  export default function Index() {
-   const { user } = useAuth();
    const { toast } = useToast();
  
    // Form state
    const [file, setFile] = useState<File | null>(null);
+   const [fileContent, setFileContent] = useState<string | null>(null);
    const [model, setModel] = useState(AI_MODELS[0].id);
    const [preset, setPreset] = useState(EDIT_PRESETS[0].id);
    const [styleRules, setStyleRules] = useState(EDIT_PRESETS[0].defaultRules);
@@ -48,6 +54,15 @@
    const [currentJob, setCurrentJob] = useState<JobData | null>(null);
    const [outputXml, setOutputXml] = useState<string | null>(null);
  
+   // Parse file when uploaded
+   useEffect(() => {
+     if (file) {
+       file.text().then(setFileContent);
+     } else {
+       setFileContent(null);
+     }
+   }, [file]);
+ 
    // Update style rules when preset changes
    useEffect(() => {
      const selectedPreset = EDIT_PRESETS.find(p => p.id === preset);
@@ -57,52 +72,50 @@
    }, [preset]);
  
    const handleGenerate = async () => {
-     if (!file || !user) return;
+     if (!file || !fileContent) return;
  
      try {
-       // Reset state
        setProcessingState('uploading');
-       setProgress(10);
+       setProgress(15);
        setCurrentJob(null);
        setOutputXml(null);
-       setStatusMessage('Uploading file...');
+       setStatusMessage('Preparing your timeline...');
  
-       // Read file content
-       const fileContent = await file.text();
-       setProgress(30);
+       // Simulate upload progress
+       const progressInterval = setInterval(() => {
+         setProgress(p => Math.min(p + 5, 40));
+       }, 200);
  
-       // Upload to storage
-       const inputPath = `${user.id}/${Date.now()}_${file.name}`;
-       const { error: uploadError } = await supabase.storage
-         .from('fcpxml-files')
-         .upload(inputPath, file);
- 
-       if (uploadError) throw new Error(`Upload failed: ${uploadError.message}`);
-       setProgress(50);
- 
-       // Call edge function
        setProcessingState('processing');
-       setStatusMessage('AI is analyzing your timeline...');
-       setProgress(60);
+       setStatusMessage('AI is analyzing clips and applying edits...');
+       setProgress(45);
+ 
+       clearInterval(progressInterval);
+ 
+       // Start progress simulation for AI processing
+       const aiProgressInterval = setInterval(() => {
+         setProgress(p => Math.min(p + 2, 90));
+       }, 500);
  
        const { data: fnData, error: fnError } = await supabase.functions.invoke('process-fcpxml', {
          body: {
            fileContent,
            fileName: file.name,
-           inputPath,
            preset,
            model,
            styleRules,
+           sessionId: getSessionId(),
          },
        });
  
+       clearInterval(aiProgressInterval);
+ 
        if (fnError) {
-         // Check for rate limit or payment errors
          if (fnError.message?.includes('429') || fnError.message?.includes('rate limit')) {
-           throw new Error('Rate limit exceeded. Please try again later.');
+           throw new Error('Rate limit exceeded. Max 10 jobs per hour. Please wait.');
          }
-         if (fnError.message?.includes('402') || fnError.message?.includes('payment')) {
-           throw new Error('AI usage limit reached. Please add credits.');
+         if (fnError.message?.includes('402')) {
+           throw new Error('AI service temporarily unavailable.');
          }
          throw new Error(fnError.message);
        }
@@ -113,11 +126,14 @@
  
        setProgress(100);
        setProcessingState('completed');
-       setStatusMessage('Processing complete!');
+       setStatusMessage('Your AI rough cut is ready!');
        setCurrentJob(fnData.job);
        setOutputXml(fnData.outputXml);
  
-       toast({ title: 'Success!', description: 'Your AI rough cut is ready for download.' });
+       toast({ 
+         title: '✨ Export Complete', 
+         description: 'Your AI-edited FCPXML is ready for download.' 
+       });
  
      } catch (err) {
        console.error('Processing error:', err);
@@ -125,138 +141,87 @@
        setStatusMessage(err instanceof Error ? err.message : 'An error occurred');
        toast({
          variant: 'destructive',
-         title: 'Processing failed',
+         title: 'Processing Failed',
          description: err instanceof Error ? err.message : 'Unknown error',
        });
      }
    };
  
+   const handleReset = () => {
+     setProcessingState('idle');
+     setProgress(0);
+     setStatusMessage('');
+     setCurrentJob(null);
+     setOutputXml(null);
+   };
+ 
    const isProcessing = processingState === 'uploading' || processingState === 'processing';
-   const canGenerate = file && !isProcessing;
+   const canGenerate = file && fileContent && !isProcessing;
+   const showOutput = processingState === 'completed' && currentJob && outputXml;
  
    return (
-     <div className="max-w-4xl mx-auto space-y-8 animate-fade-in">
-       {/* Header */}
-       <div>
-         <h1 className="text-3xl font-bold text-foreground flex items-center gap-3">
-           AI Rough Cut Generator
-           <Sparkles className="w-7 h-7 text-primary" />
-         </h1>
-         <p className="text-muted-foreground mt-2">
-           Upload your FCPXML, choose an edit style, and let AI create your rough cut
-         </p>
-       </div>
- 
-       {/* Main form */}
-       <Card className="glass-card">
-         <CardHeader>
-           <CardTitle className="text-lg">Upload & Configure</CardTitle>
-           <CardDescription>
-             Upload your Final Cut Pro XML and configure the AI edit settings
-           </CardDescription>
-         </CardHeader>
-         <CardContent className="space-y-6">
-           {/* Upload zone */}
-           <div className="space-y-2">
-             <Label>FCPXML File</Label>
-             <UploadZone file={file} onFileChange={setFile} disabled={isProcessing} />
+     <div className="min-h-screen bg-background noise-overlay">
+       <Header />
+       
+       <main className="container mx-auto px-4 py-6">
+         {/* Main grid layout */}
+         <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+           {/* Left column - Upload & Timeline */}
+           <div className="lg:col-span-7 space-y-4">
+             <UploadPanel 
+               file={file} 
+               onFileChange={setFile} 
+               disabled={isProcessing}
+               fileContent={fileContent}
+             />
+             
+             {fileContent && (
+               <TimelineVisualizer 
+                 xmlContent={fileContent} 
+                 isProcessing={isProcessing}
+               />
+             )}
+             
+             {showOutput && (
+               <OutputPanel 
+                 job={currentJob!} 
+                 outputXml={outputXml!}
+                 onNewEdit={handleReset}
+               />
+             )}
            </div>
  
-           {/* Model & Preset selectors */}
-           <div className="grid md:grid-cols-2 gap-4">
-             <div className="space-y-2">
-               <div className="flex items-center gap-2">
-                 <Label>AI Model</Label>
-                 <Tooltip>
-                   <TooltipTrigger>
-                     <Info className="w-3.5 h-3.5 text-muted-foreground" />
-                   </TooltipTrigger>
-                   <TooltipContent>
-                     <p className="max-w-xs">Choose the AI model for processing. Gemini 3 Flash is recommended for speed.</p>
-                   </TooltipContent>
-                 </Tooltip>
-               </div>
-               <Select value={model} onValueChange={setModel} disabled={isProcessing}>
-                 <SelectTrigger>
-                   <SelectValue />
-                 </SelectTrigger>
-                 <SelectContent>
-                   {AI_MODELS.map((m) => (
-                     <SelectItem key={m.id} value={m.id}>
-                       <div className="flex flex-col">
-                         <span>{m.name}</span>
-                       </div>
-                     </SelectItem>
-                   ))}
-                 </SelectContent>
-               </Select>
-             </div>
- 
-             <div className="space-y-2">
-               <Label>Edit Preset</Label>
-               <Select value={preset} onValueChange={setPreset} disabled={isProcessing}>
-                 <SelectTrigger>
-                   <SelectValue />
-                 </SelectTrigger>
-                 <SelectContent>
-                   {EDIT_PRESETS.map((p) => (
-                     <SelectItem key={p.id} value={p.id}>
-                       <div className="flex flex-col">
-                         <span>{p.name}</span>
-                       </div>
-                     </SelectItem>
-                   ))}
-                 </SelectContent>
-               </Select>
-             </div>
-           </div>
- 
-           {/* Preset description */}
-           <div className="p-3 rounded-lg bg-muted/30 border border-border/50">
-             <p className="text-sm text-muted-foreground">
-               {EDIT_PRESETS.find(p => p.id === preset)?.description}
-             </p>
-           </div>
- 
-           {/* Style rules */}
-           <div className="space-y-2">
-             <div className="flex items-center justify-between">
-               <Label>Style Rules</Label>
-               <span className="text-xs text-muted-foreground">Customize the AI edit instructions</span>
-             </div>
-             <Textarea
-               value={styleRules}
-               onChange={(e) => setStyleRules(e.target.value)}
-               rows={6}
-               className="font-mono text-sm resize-none"
-               placeholder="Enter your custom editing rules..."
+           {/* Right column - Controls */}
+           <div className="lg:col-span-5 space-y-4">
+             <PresetPanel
+               preset={preset}
+               onPresetChange={setPreset}
                disabled={isProcessing}
              />
+             
+             <ControlPanel
+               model={model}
+               onModelChange={setModel}
+               styleRules={styleRules}
+               onStyleRulesChange={setStyleRules}
+               onGenerate={handleGenerate}
+               canGenerate={canGenerate}
+               isProcessing={isProcessing}
+               processingState={processingState}
+               progress={progress}
+               statusMessage={statusMessage}
+             />
            </div>
+         </div>
+       </main>
  
-           {/* Processing status */}
-           <ProcessingStatus
-             status={processingState}
-             progress={progress}
-             message={statusMessage}
-           />
- 
-           {/* Generate button */}
-           <Button
-             size="lg"
-             onClick={handleGenerate}
-             disabled={!canGenerate}
-             className="w-full gap-2 glow-primary-hover text-base"
-           >
-             <Zap className="w-5 h-5" />
-             {isProcessing ? 'Processing...' : 'Generate AI Rough Cut'}
-           </Button>
-         </CardContent>
-       </Card>
- 
-       {/* Output section */}
-       {currentJob && (
-         <JobOutput job={currentJob} outputXml={outputXml} />
+       {/* Processing overlay */}
+       {isProcessing && (
+         <ProcessingOverlay 
+           progress={progress} 
+           message={statusMessage}
+           preset={preset}
+         />
        )}
      </div>
    );

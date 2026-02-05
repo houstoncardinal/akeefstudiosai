@@ -7,39 +7,18 @@
  };
  
  serve(async (req) => {
-   // Handle CORS preflight
    if (req.method === "OPTIONS") {
      return new Response(null, { headers: corsHeaders });
    }
  
    try {
-     // Get auth header
-     const authHeader = req.headers.get("Authorization");
-     if (!authHeader) {
-       return new Response(
-         JSON.stringify({ success: false, error: "Unauthorized" }),
-         { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-       );
-     }
- 
-     // Initialize Supabase client
+     // Initialize Supabase client with service role for public access
      const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-     const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
-     const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-       global: { headers: { Authorization: authHeader } },
-     });
- 
-     // Get user
-     const { data: { user }, error: userError } = await supabase.auth.getUser();
-     if (userError || !user) {
-       return new Response(
-         JSON.stringify({ success: false, error: "Unauthorized" }),
-         { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-       );
-     }
+     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+     const supabase = createClient(supabaseUrl, supabaseServiceKey);
  
      // Parse request body
-     const { fileContent, fileName, inputPath, preset, model, styleRules } = await req.json();
+     const { fileContent, fileName, preset, model, styleRules, sessionId } = await req.json();
  
      if (!fileContent || !fileName || !preset || !model) {
        return new Response(
@@ -48,52 +27,59 @@
        );
      }
  
-     // Rate limiting check (10 jobs per hour)
-     const hourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+     // Use sessionId for anonymous rate limiting (browser fingerprint)
+     const rateLimitKey = sessionId || "anonymous";
      
-     // Get or create rate limit record
+     // Rate limiting check (10 jobs per hour per session)
      const { data: rateLimitData } = await supabase
        .from("rate_limits")
        .select("*")
-       .eq("user_id", user.id)
-       .single();
+       .eq("id", rateLimitKey)
+       .maybeSingle();
  
      if (rateLimitData) {
        const windowStart = new Date(rateLimitData.window_start);
        const now = new Date();
        
        if (now.getTime() - windowStart.getTime() < 60 * 60 * 1000) {
-         // Within the same hour window
          if (rateLimitData.job_count >= 10) {
            return new Response(
-             JSON.stringify({ success: false, error: "Rate limit exceeded. Max 10 jobs per hour." }),
+             JSON.stringify({ success: false, error: "Rate limit exceeded. Max 10 jobs per hour. Please wait." }),
              { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
            );
          }
-         // Increment count
          await supabase
            .from("rate_limits")
            .update({ job_count: rateLimitData.job_count + 1 })
-           .eq("user_id", user.id);
+           .eq("id", rateLimitKey);
        } else {
-         // Reset window
          await supabase
            .from("rate_limits")
            .update({ job_count: 1, window_start: new Date().toISOString() })
-           .eq("user_id", user.id);
+           .eq("id", rateLimitKey);
        }
      } else {
-       // Create new rate limit record
        await supabase
          .from("rate_limits")
-         .insert({ user_id: user.id, job_count: 1, window_start: new Date().toISOString() });
+         .insert({ id: rateLimitKey, job_count: 1, window_start: new Date().toISOString() });
+     }
+ 
+     // Upload input file to storage
+     const inputPath = `public/${Date.now()}_${fileName}`;
+     const { error: inputUploadError } = await supabase.storage
+       .from("fcpxml-files")
+       .upload(inputPath, new Blob([fileContent], { type: "application/xml" }), {
+         contentType: "application/xml",
+       });
+ 
+     if (inputUploadError) {
+       console.error("Failed to upload input:", inputUploadError);
      }
  
      // Create job record
      const { data: job, error: jobError } = await supabase
        .from("jobs")
        .insert({
-         user_id: user.id,
          input_filename: fileName,
          input_file_path: inputPath,
          preset,
@@ -113,29 +99,28 @@
      }
  
      // Build the prompt for AI
-     const systemPrompt = `You are an expert video editor AI specializing in Final Cut Pro X timeline editing. Your task is to analyze FCPXML timelines and create edited versions based on specific style rules.
+     const systemPrompt = `You are an elite video editor AI with expertise in Final Cut Pro X timeline editing, comparable to professionals at major film studios.
  
- CRITICAL RULES:
- 1. Output ONLY valid FCPXML - no explanations, no markdown, no code blocks
- 2. Your response must start with <?xml and contain a complete <fcpxml> document
- 3. Preserve all media references and asset information exactly
- 4. Only modify clip ordering, timing, and selection within the timeline
- 5. Maintain proper frame accuracy in all timing adjustments
- 6. Keep the document structure valid and parseable
+ CRITICAL OUTPUT RULES:
+ 1. Output ONLY valid FCPXML - absolutely no explanations, markdown, or code blocks
+ 2. Your response MUST start with <?xml version="1.0" encoding="UTF-8"?> and contain a complete <fcpxml> document
+ 3. Preserve ALL media references, asset IDs, and resource information EXACTLY as provided
+ 4. Only modify: clip ordering, in/out points, durations, and timeline arrangement
+ 5. Maintain frame-accurate timing (use the same time format as input)
+ 6. Keep the XML structure valid and parseable by Final Cut Pro
+ 7. Preserve all audio/video synchronization
  
  EDIT STYLE: ${preset.split('_').join(' ').toUpperCase()}
  
- STYLE RULES TO APPLY:
+ PROFESSIONAL EDITING RULES TO APPLY:
  ${styleRules}
  
- Analyze the input FCPXML, apply the editing rules to create a rough cut, and return ONLY the modified FCPXML.`;
+ Analyze the source FCPXML, apply professional editing techniques based on the style rules, and output ONLY the modified FCPXML document.`;
  
-     const userPrompt = `Here is the FCPXML to edit:\n\n${fileContent}`;
+     const userPrompt = `Process this FCPXML and create a professional rough cut:\n\n${fileContent}`;
  
-     // Call Lovable AI Gateway
      const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
      if (!LOVABLE_API_KEY) {
-       // Update job as failed
        await supabase
          .from("jobs")
          .update({ status: "failed", error_message: "AI service not configured" })
@@ -156,13 +141,13 @@
          "Content-Type": "application/json",
        },
        body: JSON.stringify({
-         model: model,
+         model,
          messages: [
            { role: "system", content: systemPrompt },
            { role: "user", content: userPrompt },
          ],
-         temperature: 0.3,
-         max_tokens: 100000,
+         temperature: 0.2,
+         max_tokens: 128000,
        }),
      });
  
@@ -172,9 +157,9 @@
        
        let errorMessage = "AI processing failed";
        if (aiResponse.status === 429) {
-         errorMessage = "Rate limit exceeded. Please try again later.";
+         errorMessage = "AI rate limit exceeded. Please try again in a few minutes.";
        } else if (aiResponse.status === 402) {
-         errorMessage = "AI usage limit reached. Please add credits.";
+         errorMessage = "AI service temporarily unavailable.";
        }
  
        await supabase
@@ -191,7 +176,7 @@
      const aiData = await aiResponse.json();
      let outputXml = aiData.choices?.[0]?.message?.content || "";
  
-     // Validate the output is FCPXML
+     // Validate FCPXML output
      if (!outputXml.includes("<fcpxml") || !outputXml.includes("</fcpxml>")) {
        console.error("Invalid FCPXML output from AI");
        
@@ -199,26 +184,26 @@
          .from("jobs")
          .update({ 
            status: "failed", 
-           error_message: "AI output was not valid FCPXML. Please try again." 
+           error_message: "AI output was not valid FCPXML. Please try a different model or simplify the input." 
          })
          .eq("id", job.id);
  
        return new Response(
-         JSON.stringify({ success: false, error: "AI output was not valid FCPXML" }),
+         JSON.stringify({ success: false, error: "AI output was not valid FCPXML. Try again or use a different model." }),
          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
        );
      }
  
-     // Extract just the FCPXML portion if there's extra text
+     // Extract clean FCPXML
      const fcpxmlStart = outputXml.indexOf("<?xml");
      const fcpxmlEnd = outputXml.lastIndexOf("</fcpxml>") + "</fcpxml>".length;
      if (fcpxmlStart !== -1 && fcpxmlEnd > fcpxmlStart) {
        outputXml = outputXml.slice(fcpxmlStart, fcpxmlEnd);
      }
  
-     // Save output file to storage
+     // Save output file
      const outputFileName = fileName.replace(".fcpxml", "_ai_roughcut.fcpxml");
-     const outputPath = `${user.id}/${Date.now()}_${outputFileName}`;
+     const outputPath = `public/${Date.now()}_${outputFileName}`;
  
      const { error: uploadError } = await supabase.storage
        .from("fcpxml-files")
@@ -240,7 +225,7 @@
      }
  
      // Update job as completed
-     const { data: updatedJob, error: updateError } = await supabase
+     const { data: updatedJob } = await supabase
        .from("jobs")
        .update({
          status: "completed",
@@ -251,10 +236,6 @@
        .eq("id", job.id)
        .select()
        .single();
- 
-     if (updateError) {
-       console.error("Failed to update job:", updateError);
-     }
  
      console.log(`Job ${job.id} completed successfully`);
  

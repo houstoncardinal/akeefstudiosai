@@ -28,7 +28,7 @@ export type Database = {
           preset: string
           status: string
           style_rules: string | null
-          user_id: string
+          user_id: string | null
         }
         Insert: {
           completed_at?: string | null
@@ -43,7 +43,7 @@ export type Database = {
           preset: string
           status?: string
           style_rules?: string | null
-          user_id: string
+          user_id?: string | null
         }
         Update: {
           completed_at?: string | null
@@ -58,7 +58,7 @@ export type Database = {
           preset?: string
           status?: string
           style_rules?: string | null
-          user_id?: string
+          user_id?: string | null
         }
         Relationships: []
       }
@@ -90,19 +90,19 @@ export type Database = {
         Row: {
           id: string
           job_count: number
-          user_id: string
+          user_id: string | null
           window_start: string
         }
         Insert: {
           id?: string
           job_count?: number
-          user_id: string
+          user_id?: string | null
           window_start?: string
         }
         Update: {
           id?: string
           job_count?: number
-          user_id?: string
+          user_id?: string | null
           window_start?: string
         }
         Relationships: []
