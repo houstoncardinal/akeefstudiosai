@@ -29,6 +29,23 @@ import scifiGreenThumb from '@/assets/luts/scifi-green.jpg';
 import goldenHourThumb from '@/assets/luts/golden-hour.jpg';
 import bwClassicThumb from '@/assets/luts/bw-classic.jpg';
 import romanceSoftThumb from '@/assets/luts/romance-soft.jpg';
+// New LUT thumbnails
+import beachSummerThumb from '@/assets/luts/beach-summer.jpg';
+import horrorTealThumb from '@/assets/luts/horror-teal.jpg';
+import desertOrangeThumb from '@/assets/luts/desert-orange.jpg';
+import sepiaWesternThumb from '@/assets/luts/sepia-western.jpg';
+import noirDetectiveThumb from '@/assets/luts/noir-detective.jpg';
+import dreamyWeddingThumb from '@/assets/luts/dreamy-wedding.jpg';
+import cyberpunkCityThumb from '@/assets/luts/cyberpunk-city.jpg';
+import bleachBypassThumb from '@/assets/luts/bleach-bypass.jpg';
+import tropicalVibrantThumb from '@/assets/luts/tropical-vibrant.jpg';
+import vhsRetroThumb from '@/assets/luts/vhs-retro.jpg';
+import autumnWarmThumb from '@/assets/luts/autumn-warm.jpg';
+import nordicColdThumb from '@/assets/luts/nordic-cold.jpg';
+import instagramFadeThumb from '@/assets/luts/instagram-fade.jpg';
+import chiaroscuroThumb from '@/assets/luts/chiaroscuro.jpg';
+import polaroidFadeThumb from '@/assets/luts/polaroid-fade.jpg';
+import deepOceanThumb from '@/assets/luts/deep-ocean.jpg';
 
 interface ColorPanelProps {
   colorGrade: string;
@@ -58,6 +75,23 @@ const thumbnailMap: Record<string, string> = {
   'golden-hour': goldenHourThumb,
   'bw-classic': bwClassicThumb,
   'romance-soft': romanceSoftThumb,
+  // New thumbnails
+  'beach-summer': beachSummerThumb,
+  'horror-teal': horrorTealThumb,
+  'desert-orange': desertOrangeThumb,
+  'sepia-western': sepiaWesternThumb,
+  'noir-detective': noirDetectiveThumb,
+  'dreamy-wedding': dreamyWeddingThumb,
+  'cyberpunk-city': cyberpunkCityThumb,
+  'bleach-bypass': bleachBypassThumb,
+  'tropical-vibrant': tropicalVibrantThumb,
+  'vhs-retro': vhsRetroThumb,
+  'autumn-warm': autumnWarmThumb,
+  'nordic-cold': nordicColdThumb,
+  'instagram-fade': instagramFadeThumb,
+  'chiaroscuro': chiaroscuroThumb,
+  'polaroid-fade': polaroidFadeThumb,
+  'deep-ocean': deepOceanThumb,
 };
 
 const categoryIcons = {
