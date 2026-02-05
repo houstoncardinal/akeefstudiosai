@@ -2,6 +2,13 @@
   command = "npm run build"
   publish = "dist"
 
+[build.environment]
+  # Supabase anon key & URL are PUBLIC and intentionally embedded in the JS bundle.
+  # Backend secrets (OPENAI_API_KEY, GEMINI_API_KEY, etc.) belong in Supabase dashboard,
+  # NOT in Netlify env vars — they are only used by Supabase Edge Functions.
+  SECRETS_SCAN_OMIT_KEYS = "VITE_SUPABASE_URL,VITE_SUPABASE_PUBLISHABLE_KEY,VITE_SUPABASE_PROJECT_ID"
+  SECRETS_SCAN_OMIT_PATHS = "supabase/functions/"
+
 [[redirects]]
   from = "/*"
   to = "/index.html"

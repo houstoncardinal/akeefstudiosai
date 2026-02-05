@@ -363,6 +363,22 @@ Apply all these settings to create a professional edit. Output valid FCPXML only
              exportFormat: config.exportFormat,
               formatTools: config.formatTools,
            },
+           analysisMetadata: {
+             audio: audioAnalysis ? {
+               bpm: audioAnalysis.bpm,
+               duration: audioAnalysis.duration,
+               beatCount: audioAnalysis.beatTimestamps.length,
+             } : null,
+             video: videoAnalysis ? {
+               sceneCount: videoAnalysis.sceneChanges.length,
+               duration: videoAnalysis.duration,
+               averageBrightness: videoAnalysis.averageBrightness,
+               frameCount: videoAnalysis.frameCount,
+             } : null,
+             color: colorSettings,
+             effects: effectOverrides,
+             detectedFormat: detectedFormat?.id ?? null,
+           },
          },
        });
 

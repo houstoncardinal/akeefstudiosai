@@ -467,7 +467,8 @@ serve(async (req) => {
       sessionId,
       advancedConfig,
       fileType,
-      isVideoFile
+      isVideoFile,
+      analysisMetadata
     } = await req.json();
 
     if (!rawFileName || !preset || !model) {
@@ -524,6 +525,7 @@ serve(async (req) => {
         model,
         style_rules: styleRules,
         status: "processing",
+        analysis_metadata: analysisMetadata ?? null,
       })
       .select()
       .single();
