@@ -28,6 +28,8 @@ import { type VideoFormat } from '@/lib/formats';
  import ShotIntelligencePanel from '@/components/studio/ShotIntelligencePanel';
  import BeatEnginePanel from '@/components/studio/BeatEnginePanel';
  import DirectorIntentPanel from '@/components/studio/DirectorIntentPanel';
+import FeedbackPanel from '@/components/studio/FeedbackPanel';
+import MultiVersionPanel from '@/components/studio/MultiVersionPanel';
  import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
  import { 
    Palette, 
@@ -40,7 +42,8 @@ import { type VideoFormat } from '@/lib/formats';
    ArrowRightLeft,
    Eye,
    Music,
-   Compass
+  Compass,
+  MessageSquare
  } from 'lucide-react';
  
  type ProcessingState = 'idle' | 'uploading' | 'processing' | 'completed' | 'failed';
@@ -491,10 +494,11 @@ ${config.formatTools.length > 0 ? config.formatTools.join(', ') : 'Standard proc
                      </TabsContent>
  
                      <TabsContent value="versions" className="m-0 h-full">
-                       <VersionPanel
+                       <MultiVersionPanel
                          selectedVersions={config.versions}
                          onVersionsChange={(versions) => updateConfig({ versions })}
-                         disabled={isProcessing}
+                         isProcessing={isProcessing}
+                         generatedVersions={showOutput ? ['full_edit'] : []}
                        />
                      </TabsContent>
                      
@@ -559,6 +563,21 @@ ${config.formatTools.length > 0 ? config.formatTools.join(', ') : 'Standard proc
  
                {/* Right - Output */}
                <div className="lg:col-span-4 overflow-auto">
+                {/* AI Feedback Panel - Shows after processing */}
+                {showOutput && (
+                  <div className="mb-4">
+                    <FeedbackPanel
+                      config={config}
+                      timelineData={{
+                        duration: 180,
+                        bpm: detectedBPM || 128,
+                        sections: ['Intro', 'Verse', 'Chorus', 'Bridge', 'Outro'],
+                      }}
+                      showAfterProcessing={showOutput}
+                    />
+                  </div>
+                )}
+                
                  {/* Prominent Custom Rules Editor */}
                  <div className="mb-4">
                    <CustomRulesEditor
