@@ -14,6 +14,48 @@ export type Database = {
   }
   public: {
     Tables: {
+      custom_luts: {
+        Row: {
+          category: string | null
+          created_at: string
+          description: string | null
+          file_path: string
+          id: string
+          intensity: number | null
+          is_favorite: boolean | null
+          name: string
+          thumbnail_path: string | null
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          category?: string | null
+          created_at?: string
+          description?: string | null
+          file_path: string
+          id?: string
+          intensity?: number | null
+          is_favorite?: boolean | null
+          name: string
+          thumbnail_path?: string | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          category?: string | null
+          created_at?: string
+          description?: string | null
+          file_path?: string
+          id?: string
+          intensity?: number | null
+          is_favorite?: boolean | null
+          name?: string
+          thumbnail_path?: string | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       jobs: {
         Row: {
           completed_at: string | null
