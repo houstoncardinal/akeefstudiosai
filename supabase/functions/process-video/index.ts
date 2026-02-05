@@ -287,6 +287,27 @@ async function callGemini(apiKey: string, model: string, systemPrompt: string, u
 // Call Lovable AI Gateway (fallback)
 async function callLovableAI(apiKey: string, model: string, systemPrompt: string, userPrompt: string): Promise<string> {
   console.log(`Calling Lovable AI Gateway with model: ${model}`);
+
+  const messages = [
+    { role: "system", content: systemPrompt },
+    { role: "user", content: userPrompt },
+  ];
+
+  const isOpenAIModel = model.startsWith('openai/');
+
+  // The gateway forwards to multiple providers; some OpenAI models expect
+  // `max_completion_tokens` instead of `max_tokens`.
+  const tokenLimitPayload = model.startsWith('openai/')
+    ? { max_completion_tokens: 8192 }
+    : { max_tokens: 16384 };
+
+  const payload: Record<string, unknown> = {
+    model,
+    messages,
+    ...tokenLimitPayload,
+    // Some OpenAI gateway routes only support default temperature.
+    ...(isOpenAIModel ? {} : { temperature: 0.15 }),
+  };
   
   const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
     method: "POST",
@@ -294,15 +315,7 @@ async function callLovableAI(apiKey: string, model: string, systemPrompt: string
       "Authorization": `Bearer ${apiKey}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({
-      model,
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userPrompt },
-      ],
-      temperature: 0.15,
-      max_tokens: 128000,
-    }),
+    body: JSON.stringify(payload),
   });
 
   if (!response.ok) {
@@ -314,7 +327,7 @@ async function callLovableAI(apiKey: string, model: string, systemPrompt: string
     } else if (response.status === 402) {
       throw new Error("AI service requires payment. Please add credits.");
     }
-    throw new Error(`AI Gateway error: ${response.status}`);
+    throw new Error(`AI Gateway error: ${response.status}${error ? ` - ${error}` : ''}`);
   }
 
   const data = await response.json();
@@ -439,32 +452,19 @@ Apply the specified style, effects, and AI tools to generate a complete edited t
       userPrompt = `Process this FCPXML timeline with AKEEF STUDIO AI algorithms:\n\n${fileContent}`;
     }
 
-    // Determine AI provider and get appropriate API key
-    const provider = getAIProvider(model);
+    // Route all models through the built-in AI gateway for maximum reliability.
+    // This avoids model-name drift (Gemini 2.5/3 preview) and invalid params (OpenAI 400s).
+    const provider = 'lovable-gateway';
     let outputContent = "";
-    
-    console.log(`Job ${job.id}: Using ${provider} provider with model ${model} for ${isVideoFile ? 'video' : 'timeline'} file`);
+
+    console.log(`Job ${job.id}: Using ${provider} with model ${model} for ${isVideoFile ? 'video' : 'timeline'} file`);
 
     try {
-      if (provider === 'openai') {
-        const openaiKey = Deno.env.get("OPENAI_API_KEY");
-        if (!openaiKey) {
-          throw new Error("OpenAI API key not configured. Please add your API key in settings.");
-        }
-        outputContent = await callOpenAI(openaiKey, model, systemPrompt, userPrompt);
-      } else if (provider === 'gemini') {
-        const geminiKey = Deno.env.get("GEMINI_API_KEY");
-        if (!geminiKey) {
-          throw new Error("Gemini API key not configured. Please add your API key in settings.");
-        }
-        outputContent = await callGemini(geminiKey, model, systemPrompt, userPrompt);
-      } else {
-        const lovableKey = Deno.env.get("LOVABLE_API_KEY");
-        if (!lovableKey) {
-          throw new Error("AI service not configured.");
-        }
-        outputContent = await callLovableAI(lovableKey, model, systemPrompt, userPrompt);
+      const lovableKey = Deno.env.get("LOVABLE_API_KEY");
+      if (!lovableKey) {
+        throw new Error("AI service not configured.");
       }
+      outputContent = await callLovableAI(lovableKey, model, systemPrompt, userPrompt);
     } catch (aiError) {
       console.error("AI processing error:", aiError);
       await supabase.from("jobs").update({ status: "failed", error_message: aiError instanceof Error ? aiError.message : "AI processing failed" }).eq("id", job.id);
@@ -477,7 +477,17 @@ Apply the specified style, effects, and AI tools to generate a complete edited t
     // Validate output
     let cleanedXml = validateAndCleanFCPXML(outputContent);
     
-    // If AI failed to generate valid FCPXML for video files, use the template
+    // If AI failed to generate valid FCPXML, use safe fallbacks so the export completes.
+    // - Video file input: generate a minimal project referencing the source.
+    // - Timeline input: fall back to original timeline if it's already valid FCPXML.
+    if (!cleanedXml && !isVideoFile && typeof fileContent === 'string') {
+      const originalXml = validateAndCleanFCPXML(fileContent);
+      if (originalXml) {
+        console.log("AI output invalid, falling back to original timeline XML");
+        cleanedXml = originalXml;
+      }
+    }
+
     if (!cleanedXml && isVideoFile) {
       console.log("AI output invalid, using template for video file");
       cleanedXml = generateVideoFCPXML(fileName, fileType);
@@ -501,7 +511,11 @@ Apply the specified style, effects, and AI tools to generate a complete edited t
     
     const { error: uploadError } = await supabase.storage
       .from("fcpxml-files")
-      .upload(outputPath, new Blob([cleanedXml], { type: "application/xml" }), { contentType: "application/xml" });
+      .upload(
+        outputPath,
+        new Blob([cleanedXml], { type: "application/xml" }),
+        { contentType: "application/xml", upsert: true }
+      );
 
     if (uploadError) {
       console.error("Failed to upload output:", uploadError);
