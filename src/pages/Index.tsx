@@ -40,7 +40,7 @@ import CustomRulesEditorEnhanced from '@/components/studio/CustomRulesEditorEnha
 import PanelWrapper from '@/components/studio/PanelWrapper';
 import KeyboardShortcutsOverlay from '@/components/studio/KeyboardShortcutsOverlay';
 import DraftRecoveryBanner from '@/components/studio/DraftRecoveryBanner';
-import ToolSectionTabs from '@/components/studio/ToolSectionTabs';
+import ToolRail from '@/components/studio/ToolRail';
 import WelcomeGuide from '@/components/studio/WelcomeGuide';
 import QuickExportBar from '@/components/studio/QuickExportBar';
 import VisualWorkflowIndicator from '@/components/studio/VisualWorkflowIndicator';
@@ -1215,36 +1215,13 @@ Apply all these settings to create a professional edit. Output valid FCPXML only
                 {/* Left - Tool Tabs */}
                 <ResizablePanel defaultSize={65} minSize={40} maxSize={85} className="overflow-hidden">
                   <div className="h-full flex gap-4">
-                    {/* Desktop vertical rail */}
-                    <div className="flex flex-col gap-2 w-[82px] pr-1">
-                      <div className="rounded-2xl border border-border/40 bg-card/50 backdrop-blur-sm shadow-sm p-2 flex flex-col gap-2 h-full">
-                        {toolSections.map((section) => {
-                          const active = activeTab === section.id;
-                          return (
-                            <button
-                              key={section.id}
-                              onClick={() => handleTabChange(section.id)}
-                              className={cn(
-                                'group w-full rounded-xl px-2 py-3 flex flex-col items-center gap-2 text-[10px] font-medium transition-all border',
-                                active
-                                  ? 'bg-primary text-primary-foreground border-primary shadow-primary/30 shadow-lg'
-                                  : 'bg-muted/30 text-muted-foreground border-border/50 hover:border-primary/40 hover:bg-primary/10'
-                              )}
-                            >
-                              <div className={cn(
-                                'w-10 h-10 rounded-lg flex items-center justify-center transition-all',
-                                active ? 'bg-primary-foreground/15 text-primary-foreground' : 'bg-background/70 text-foreground'
-                              )}>
-                                {section.icon}
-                              </div>
-                              <span className={cn('leading-tight text-center', active && 'text-primary-foreground')}>
-                                {section.label}
-                              </span>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
+                    {/* Desktop vertical rail - scrollable & searchable */}
+                    <ToolRail
+                      activeTab={activeTab}
+                      onTabChange={handleTabChange}
+                      recentTools={preferences.recentTools || []}
+                      favoriteTools={preferences.favoriteTools || []}
+                    />
 
                     <Tabs value={activeTab} onValueChange={handleTabChange} className="h-full flex-1 flex flex-col">
                       <TabsList className="sr-only">
