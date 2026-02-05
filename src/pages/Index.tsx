@@ -886,6 +886,8 @@ Apply all these settings to create a professional edit. Output valid FCPXML only
                   transitions={config.transitions}
                   graphics={config.graphics}
                   isProcessing={isProcessing}
+                  audioAnalysis={audioAnalysis}
+                  videoAnalysis={videoAnalysis}
                 />
               </div>
             )}
@@ -994,6 +996,8 @@ Apply all these settings to create a professional edit. Output valid FCPXML only
                 transitions={config.transitions}
                 graphics={config.graphics}
                 isProcessing={isProcessing}
+                audioAnalysis={audioAnalysis}
+                videoAnalysis={videoAnalysis}
               />
 
               {/* Tool content */}
@@ -1121,6 +1125,10 @@ Apply all these settings to create a professional edit. Output valid FCPXML only
                   transitions={config.transitions}
                   graphics={config.graphics}
                   isProcessing={isProcessing}
+                  audioAnalysis={audioAnalysis}
+                  videoAnalysis={videoAnalysis}
+                  onClipSelect={(clipId) => clipId && trackFeatureUse('clip-select')}
+                  onPlayheadChange={(time) => setPlayheadPosition(time)}
                 />
               </div>
             </div>
