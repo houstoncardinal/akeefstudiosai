@@ -16,7 +16,6 @@ export type Database = {
     Tables: {
       jobs: {
         Row: {
-          analysis_metadata: Json | null
           completed_at: string | null
           created_at: string
           error_message: string | null
@@ -29,11 +28,9 @@ export type Database = {
           preset: string
           status: string
           style_rules: string | null
-          updated_at: string
           user_id: string | null
         }
         Insert: {
-          analysis_metadata?: Json | null
           completed_at?: string | null
           created_at?: string
           error_message?: string | null
@@ -46,11 +43,9 @@ export type Database = {
           preset: string
           status?: string
           style_rules?: string | null
-          updated_at?: string
           user_id?: string | null
         }
         Update: {
-          analysis_metadata?: Json | null
           completed_at?: string | null
           created_at?: string
           error_message?: string | null
@@ -63,7 +58,6 @@ export type Database = {
           preset?: string
           status?: string
           style_rules?: string | null
-          updated_at?: string
           user_id?: string | null
         }
         Relationships: []
@@ -118,26 +112,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      cleanup_expired_rate_limits: {
-        Args: Record<PropertyKey, never>
-        Returns: number
-      }
-      cleanup_stale_jobs: {
-        Args: Record<PropertyKey, never>
-        Returns: number
-      }
-      count_orphaned_storage_files: {
-        Args: Record<PropertyKey, never>
-        Returns: number
-      }
-      find_orphaned_storage_files: {
-        Args: Record<PropertyKey, never>
-        Returns: { orphaned_path: string }[]
-      }
-      get_job_stats: {
-        Args: Record<PropertyKey, never>
-        Returns: Json
-      }
+      [_ in never]: never
     }
     Enums: {
       [_ in never]: never
