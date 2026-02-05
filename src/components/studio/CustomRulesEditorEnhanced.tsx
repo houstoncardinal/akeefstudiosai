@@ -23,11 +23,27 @@ import {
   Camera,
   Volume2,
   Plus,
-  Check
+  Check,
+  Expand,
+  X,
+  Tv,
+  Clapperboard,
+  Radio,
+  Megaphone,
+  GraduationCap,
+  PartyPopper,
+  Glasses,
+  Sword,
+  Ghost,
+  Sunset,
+  Mountain,
+  Eye
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 interface CustomRulesEditorProps {
   value: string;
@@ -41,6 +57,8 @@ const VISION_TEMPLATES = [
     id: 'cinematic_drama',
     icon: Film,
     label: 'Cinematic Drama',
+    category: 'Film',
+    description: 'Hollywood-style dramatic editing with emotional pacing and film aesthetics',
     color: 'from-amber-500 to-orange-600',
     rules: `STYLE: Cinematic Film Grade
 - Long holds on emotional beats (3-5 seconds)
@@ -55,6 +73,8 @@ const VISION_TEMPLATES = [
     id: 'music_video_hype',
     icon: Music,
     label: 'Music Video Hype',
+    category: 'Music',
+    description: 'High-energy beat-synced editing for music videos and performances',
     color: 'from-purple-500 to-pink-600',
     rules: `STYLE: High-Energy Music Edit
 - Cut on EVERY beat during chorus
@@ -69,6 +89,8 @@ const VISION_TEMPLATES = [
     id: 'viral_tiktok',
     icon: Flame,
     label: 'Viral TikTok',
+    category: 'Social',
+    description: 'Fast-paced vertical content optimized for social media engagement',
     color: 'from-rose-500 to-red-600',
     rules: `STYLE: TikTok Viral Formula
 - Hook in first 0.5 seconds (zoom, flash, text)
@@ -83,6 +105,8 @@ const VISION_TEMPLATES = [
     id: 'emotional_slow',
     icon: Heart,
     label: 'Emotional Slow',
+    category: 'Film',
+    description: 'Reflective and emotional pacing with slow motion and soft transitions',
     color: 'from-blue-500 to-indigo-600',
     rules: `STYLE: Emotional & Reflective
 - Slow motion on all emotional peaks (50%)
@@ -97,6 +121,8 @@ const VISION_TEMPLATES = [
     id: 'documentary_raw',
     icon: Camera,
     label: 'Documentary Raw',
+    category: 'Documentary',
+    description: 'Authentic documentary style with natural timing and interview-driven cuts',
     color: 'from-emerald-500 to-teal-600',
     rules: `STYLE: Raw Documentary
 - Natural timing, no beat sync
@@ -111,6 +137,8 @@ const VISION_TEMPLATES = [
     id: 'trailer_epic',
     icon: Star,
     label: 'Epic Trailer',
+    category: 'Film',
+    description: 'Blockbuster trailer format with tension builds and dramatic reveals',
     color: 'from-yellow-500 to-amber-600',
     rules: `STYLE: Blockbuster Trailer
 - Build tension with increasing cut pace
@@ -121,7 +149,169 @@ const VISION_TEMPLATES = [
 - 3-act structure (Setup, Rise, Climax)
 - End on cliffhanger/question`
   },
+  {
+    id: 'commercial_product',
+    icon: Tv,
+    label: 'Product Commercial',
+    category: 'Commercial',
+    description: 'Clean, professional product showcase with smooth reveals',
+    color: 'from-cyan-500 to-blue-600',
+    rules: `STYLE: Product Commercial
+- Smooth dolly/slider moves
+- Clean white or gradient backgrounds
+- Product hero shots (2-3 seconds hold)
+- Motion graphics on features
+- Upbeat music sync on reveals
+- Pack shot at end (3 seconds)
+- Call-to-action overlay`
+  },
+  {
+    id: 'horror_tension',
+    icon: Ghost,
+    label: 'Horror Tension',
+    category: 'Film',
+    description: 'Suspenseful horror editing with jump scares and dread building',
+    color: 'from-slate-700 to-slate-900',
+    rules: `STYLE: Horror/Thriller
+- Long uncomfortable holds (5-8 seconds)
+- Sudden hard cuts for jump scares
+- Desaturated, cold color grade
+- Audio stingers on cuts
+- Slow creeping zooms
+- Black frames before reveals
+- Low frequency rumble builds`
+  },
+  {
+    id: 'action_intense',
+    icon: Sword,
+    label: 'Action Intense',
+    category: 'Film',
+    description: 'Fast-paced action sequences with impact cuts and speed ramping',
+    color: 'from-red-600 to-orange-600',
+    rules: `STYLE: Action Sequence
+- Rapid cuts during fights (0.2-0.5s)
+- Speed ramp on impacts (150% → 50% → 100%)
+- Camera shake on hits
+- Sound design sync (punch = cut)
+- Wide → close → wide pattern
+- Slow-mo on finishing moves
+- High contrast, crushed blacks`
+  },
+  {
+    id: 'wedding_romantic',
+    icon: PartyPopper,
+    label: 'Wedding Romance',
+    category: 'Events',
+    description: 'Romantic wedding film style with soft colors and emotional moments',
+    color: 'from-pink-400 to-rose-500',
+    rules: `STYLE: Wedding Film
+- Slow motion on key moments (60%)
+- Soft, airy color grade
+- Long dissolves between scenes (2s)
+- Vows audio over B-roll montage
+- Golden hour warmth boost
+- Film grain (3%)
+- Gentle lens flares allowed`
+  },
+  {
+    id: 'corporate_clean',
+    icon: GraduationCap,
+    label: 'Corporate Clean',
+    category: 'Commercial',
+    description: 'Professional corporate video style with clear messaging',
+    color: 'from-blue-600 to-indigo-700',
+    rules: `STYLE: Corporate/B2B
+- Clean, professional cuts
+- Interview-driven narrative
+- B-roll supports talking points
+- Lower thirds with titles
+- Brand color accents
+- Consistent 3-second minimum shots
+- End with logo + CTA`
+  },
+  {
+    id: 'vlog_personal',
+    icon: Radio,
+    label: 'Vlog Personal',
+    category: 'Social',
+    description: 'Casual vlog style with personality and quick pacing',
+    color: 'from-orange-500 to-yellow-500',
+    rules: `STYLE: Personal Vlog
+- Jump cuts to remove pauses
+- Zoom punches on emphasis (110%)
+- Text overlays for humor
+- B-roll cutaways (1-2 seconds)
+- Music bed under narration
+- Face cam priority
+- Subscribe reminder at end`
+  },
+  {
+    id: 'nature_ambient',
+    icon: Mountain,
+    label: 'Nature Ambient',
+    category: 'Documentary',
+    description: 'Peaceful nature documentary with ambient pacing',
+    color: 'from-green-500 to-emerald-600',
+    rules: `STYLE: Nature/Ambient
+- Long establishing shots (5-10 seconds)
+- Slow, smooth transitions
+- Natural sound priority
+- Timelapse for clouds/light
+- Slow motion wildlife (40%)
+- Rich, natural color grade
+- Minimal text overlays`
+  },
+  {
+    id: 'retro_80s',
+    icon: Glasses,
+    label: 'Retro 80s',
+    category: 'Stylized',
+    description: 'Synthwave-inspired retro aesthetic with neon colors',
+    color: 'from-fuchsia-500 to-purple-700',
+    rules: `STYLE: 80s Retro/Synthwave
+- VHS scan lines overlay
+- Neon pink/cyan color grade
+- Grid graphics and chrome text
+- Slow zoom outs
+- Synth music sync
+- Soft glow on highlights
+- 4:3 crop option for authenticity`
+  },
+  {
+    id: 'tutorial_educational',
+    icon: Eye,
+    label: 'Tutorial Clear',
+    category: 'Educational',
+    description: 'Clear educational format with annotations and callouts',
+    color: 'from-teal-500 to-cyan-600',
+    rules: `STYLE: Tutorial/Educational
+- Screen recording priority
+- Zoom to areas of focus (150%)
+- Highlight cursor movements
+- Step-by-step title cards
+- Clear audio priority
+- Callout boxes on key points
+- Chapter markers for navigation`
+  },
+  {
+    id: 'sunset_golden',
+    icon: Sunset,
+    label: 'Golden Hour',
+    category: 'Stylized',
+    description: 'Warm, golden hour aesthetic with dreamy visuals',
+    color: 'from-amber-400 to-orange-500',
+    rules: `STYLE: Golden Hour/Dreamy
+- Warm orange/gold color grade
+- Soft highlights, no clipping
+- Lens flares enhanced
+- Slow motion (70%)
+- Long dissolves (2-3 seconds)
+- Hazy/soft filter look
+- Gentle vignette (15%)`
+  },
 ];
+
+const TEMPLATE_CATEGORIES = ['All', 'Film', 'Music', 'Social', 'Documentary', 'Commercial', 'Events', 'Educational', 'Stylized'];
 
 // Smart suggestion chips
 const QUICK_RULES = [
@@ -145,6 +335,9 @@ export default function CustomRulesEditorEnhanced({ value, onChange, disabled }:
   const [quickIdea, setQuickIdea] = useState('');
   const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null);
   const [addedRules, setAddedRules] = useState<string[]>([]);
+  const [templateDialogOpen, setTemplateDialogOpen] = useState(false);
+  const [activeCategory, setActiveCategory] = useState('All');
+  const [previewTemplate, setPreviewTemplate] = useState<typeof VISION_TEMPLATES[0] | null>(null);
 
   const addQuickRule = (rule: string) => {
     if (addedRules.includes(rule)) return;
@@ -157,7 +350,13 @@ export default function CustomRulesEditorEnhanced({ value, onChange, disabled }:
     setSelectedTemplate(template.id);
     onChange(template.rules);
     setAddedRules([]);
+    setTemplateDialogOpen(false);
+    setPreviewTemplate(null);
   };
+
+  const filteredTemplates = activeCategory === 'All' 
+    ? VISION_TEMPLATES 
+    : VISION_TEMPLATES.filter(t => t.category === activeCategory);
 
   const handleQuickIdeaSubmit = useCallback(() => {
     if (!quickIdea.trim()) return;
@@ -238,13 +437,163 @@ export default function CustomRulesEditorEnhanced({ value, onChange, disabled }:
 
             {/* Vision Templates - One-click powerful presets */}
             <div className="space-y-2">
-              <div className="flex items-center gap-2">
-                <Target className="w-3.5 h-3.5 text-primary" />
-                <span className="text-[10px] uppercase tracking-wider text-foreground font-semibold">Vision Templates</span>
-                <span className="text-[9px] text-muted-foreground">— One-click styles</span>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Target className="w-3.5 h-3.5 text-primary" />
+                  <span className="text-[10px] uppercase tracking-wider text-foreground font-semibold">Vision Templates</span>
+                  <Badge variant="secondary" className="text-[9px]">{VISION_TEMPLATES.length}</Badge>
+                </div>
+                <Dialog open={templateDialogOpen} onOpenChange={setTemplateDialogOpen}>
+                  <DialogTrigger asChild>
+                    <Button variant="outline" size="sm" className="h-6 text-[10px] gap-1 px-2">
+                      <Expand className="w-3 h-3" />
+                      Browse All
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="max-w-4xl max-h-[85vh] p-0 gap-0">
+                    <DialogHeader className="p-4 pb-0">
+                      <DialogTitle className="flex items-center gap-2">
+                        <Target className="w-5 h-5 text-primary" />
+                        Vision Templates
+                        <Badge variant="outline" className="ml-2">{VISION_TEMPLATES.length} Templates</Badge>
+                      </DialogTitle>
+                    </DialogHeader>
+                    
+                    <div className="flex h-[65vh]">
+                      {/* Left: Template Grid */}
+                      <div className="flex-1 border-r border-border/50 flex flex-col">
+                        {/* Category Tabs */}
+                        <div className="p-3 border-b border-border/30">
+                          <ScrollArea className="w-full">
+                            <div className="flex gap-1">
+                              {TEMPLATE_CATEGORIES.map((cat) => (
+                                <Button
+                                  key={cat}
+                                  variant={activeCategory === cat ? 'default' : 'ghost'}
+                                  size="sm"
+                                  className={cn(
+                                    'h-7 text-xs whitespace-nowrap',
+                                    activeCategory === cat && 'bg-primary text-primary-foreground'
+                                  )}
+                                  onClick={() => setActiveCategory(cat)}
+                                >
+                                  {cat}
+                                </Button>
+                              ))}
+                            </div>
+                          </ScrollArea>
+                        </div>
+                        
+                        {/* Template Grid */}
+                        <ScrollArea className="flex-1 p-3">
+                          <div className="grid grid-cols-2 gap-2">
+                            {filteredTemplates.map((template) => {
+                              const Icon = template.icon;
+                              const isSelected = selectedTemplate === template.id;
+                              const isPreviewing = previewTemplate?.id === template.id;
+                              return (
+                                <button
+                                  key={template.id}
+                                  onClick={() => setPreviewTemplate(template)}
+                                  className={cn(
+                                    'relative p-3 rounded-xl border text-left transition-all duration-200 group overflow-hidden',
+                                    isPreviewing 
+                                      ? 'border-primary bg-primary/10 ring-2 ring-primary/30' 
+                                      : isSelected
+                                        ? 'border-primary/50 bg-primary/5'
+                                        : 'border-border/50 hover:border-primary/40 hover:bg-muted/50'
+                                  )}
+                                >
+                                  <div className={cn(
+                                    'absolute inset-0 opacity-0 group-hover:opacity-10 transition-opacity bg-gradient-to-br',
+                                    template.color
+                                  )} />
+                                  <div className="relative space-y-2">
+                                    <div className="flex items-center gap-2">
+                                      <div className={cn(
+                                        'w-9 h-9 rounded-lg flex items-center justify-center bg-gradient-to-br shadow-lg',
+                                        template.color
+                                      )}>
+                                        <Icon className="w-4 h-4 text-white" />
+                                      </div>
+                                      <div className="flex-1 min-w-0">
+                                        <p className="text-sm font-semibold text-foreground truncate">{template.label}</p>
+                                        <p className="text-[10px] text-muted-foreground">{template.category}</p>
+                                      </div>
+                                      {isSelected && (
+                                        <Check className="w-4 h-4 text-primary" />
+                                      )}
+                                    </div>
+                                    <p className="text-[11px] text-muted-foreground line-clamp-2">{template.description}</p>
+                                  </div>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </ScrollArea>
+                      </div>
+                      
+                      {/* Right: Template Preview */}
+                      <div className="w-80 flex flex-col bg-muted/20">
+                        {previewTemplate ? (
+                          <>
+                            <div className="p-4 border-b border-border/30">
+                              <div className="flex items-center gap-3 mb-3">
+                                <div className={cn(
+                                  'w-12 h-12 rounded-xl flex items-center justify-center bg-gradient-to-br shadow-lg',
+                                  previewTemplate.color
+                                )}>
+                                  <previewTemplate.icon className="w-6 h-6 text-white" />
+                                </div>
+                                <div>
+                                  <h3 className="font-bold text-lg text-foreground">{previewTemplate.label}</h3>
+                                  <Badge variant="outline" className="text-[10px]">{previewTemplate.category}</Badge>
+                                </div>
+                              </div>
+                              <p className="text-sm text-muted-foreground">{previewTemplate.description}</p>
+                            </div>
+                            
+                            <div className="flex-1 p-4 overflow-auto">
+                              <div className="space-y-2">
+                                <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
+                                  AI Instructions Preview
+                                </span>
+                                <div className="p-3 rounded-lg bg-background border border-border/50 font-mono text-xs leading-relaxed text-foreground whitespace-pre-wrap">
+                                  {previewTemplate.rules}
+                                </div>
+                              </div>
+                            </div>
+                            
+                            <div className="p-4 border-t border-border/30">
+                              <Button 
+                                className="w-full h-11 bg-primary hover:bg-primary/90 font-semibold"
+                                onClick={() => applyTemplate(previewTemplate)}
+                              >
+                                <Check className="w-4 h-4 mr-2" />
+                                Apply This Template
+                              </Button>
+                            </div>
+                          </>
+                        ) : (
+                          <div className="flex-1 flex items-center justify-center p-6 text-center">
+                            <div>
+                              <div className="w-16 h-16 rounded-2xl bg-muted/50 flex items-center justify-center mx-auto mb-4">
+                                <Target className="w-8 h-8 text-muted-foreground/50" />
+                              </div>
+                              <p className="text-sm font-medium text-muted-foreground">Select a template</p>
+                              <p className="text-xs text-muted-foreground/70 mt-1">Click any template to preview its rules</p>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </DialogContent>
+                </Dialog>
               </div>
-              <div className="grid grid-cols-3 gap-2">
-                {VISION_TEMPLATES.map((template) => {
+              
+              {/* Quick Template Grid - Show first 6 */}
+              <div className="grid grid-cols-2 gap-2">
+                {VISION_TEMPLATES.slice(0, 6).map((template) => {
                   const Icon = template.icon;
                   const isSelected = selectedTemplate === template.id;
                   return (
@@ -263,24 +612,38 @@ export default function CustomRulesEditorEnhanced({ value, onChange, disabled }:
                         'absolute inset-0 opacity-0 group-hover:opacity-10 transition-opacity bg-gradient-to-br',
                         template.color
                       )} />
-                      <div className="relative flex items-center gap-2">
-                        <div className={cn(
-                          'w-7 h-7 rounded-lg flex items-center justify-center bg-gradient-to-br',
-                          template.color
-                        )}>
-                          <Icon className="w-3.5 h-3.5 text-white" />
+                      <div className="relative">
+                        <div className="flex items-center gap-2">
+                          <div className={cn(
+                            'w-8 h-8 rounded-lg flex items-center justify-center bg-gradient-to-br shadow-sm',
+                            template.color
+                          )}>
+                            <Icon className="w-4 h-4 text-white" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-semibold text-foreground truncate">{template.label}</p>
+                            <p className="text-[9px] text-muted-foreground truncate">{template.category}</p>
+                          </div>
+                          {isSelected && (
+                            <Check className="w-4 h-4 text-primary flex-shrink-0" />
+                          )}
                         </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-[11px] font-semibold text-foreground truncate">{template.label}</p>
-                        </div>
-                        {isSelected && (
-                          <Check className="w-4 h-4 text-primary" />
-                        )}
                       </div>
                     </button>
                   );
                 })}
               </div>
+              
+              {/* More templates hint */}
+              <Button
+                variant="ghost"
+                size="sm"
+                className="w-full h-8 text-[10px] text-muted-foreground hover:text-primary gap-1"
+                onClick={() => setTemplateDialogOpen(true)}
+              >
+                <Plus className="w-3 h-3" />
+                {VISION_TEMPLATES.length - 6} more templates available...
+              </Button>
             </div>
 
             {/* Quick Add Chips */}
