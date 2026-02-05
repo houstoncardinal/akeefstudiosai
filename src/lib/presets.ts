@@ -307,7 +307,7 @@ export interface CinematicLUT {
   id: string;
   name: string;
   description: string;
-  category: 'hollywood' | 'film_stock' | 'stylized' | 'broadcast' | 'music_video';
+  category: 'hollywood' | 'film_stock' | 'stylized' | 'broadcast' | 'music_video' | 'documentary' | 'vintage' | 'specialty';
   thumbnail: string;
   lut: string;
   settings: {
