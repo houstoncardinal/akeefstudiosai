@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -37,13 +37,20 @@ import {
   Ghost,
   Sunset,
   Mountain,
-  Eye
+  Eye,
+  Search,
+  ArrowRight,
+  ChevronLeft,
+  Grid3X3,
+  LayoutList,
+  Play
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger, SheetClose } from '@/components/ui/sheet';
+import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerTrigger, DrawerClose } from '@/components/ui/drawer';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 interface CustomRulesEditorProps {
   value: string;
@@ -313,6 +320,19 @@ const VISION_TEMPLATES = [
 
 const TEMPLATE_CATEGORIES = ['All', 'Film', 'Music', 'Social', 'Documentary', 'Commercial', 'Events', 'Educational', 'Stylized'];
 
+// Category icons mapping
+const CATEGORY_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
+  'All': Grid3X3,
+  'Film': Film,
+  'Music': Music,
+  'Social': Flame,
+  'Documentary': Camera,
+  'Commercial': Tv,
+  'Events': PartyPopper,
+  'Educational': GraduationCap,
+  'Stylized': Palette,
+};
+
 // Smart suggestion chips
 const QUICK_RULES = [
   { label: 'Cut on beat', rule: '- Cut on every major beat of the music', category: 'timing' },
@@ -338,6 +358,9 @@ export default function CustomRulesEditorEnhanced({ value, onChange, disabled }:
   const [templateDialogOpen, setTemplateDialogOpen] = useState(false);
   const [activeCategory, setActiveCategory] = useState('All');
   const [previewTemplate, setPreviewTemplate] = useState<typeof VISION_TEMPLATES[0] | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const isMobile = useIsMobile();
 
   const addQuickRule = (rule: string) => {
     if (addedRules.includes(rule)) return;
@@ -352,11 +375,30 @@ export default function CustomRulesEditorEnhanced({ value, onChange, disabled }:
     setAddedRules([]);
     setTemplateDialogOpen(false);
     setPreviewTemplate(null);
+    setSearchQuery('');
   };
 
-  const filteredTemplates = activeCategory === 'All' 
-    ? VISION_TEMPLATES 
-    : VISION_TEMPLATES.filter(t => t.category === activeCategory);
+  const filteredTemplates = useMemo(() => {
+    let templates = VISION_TEMPLATES;
+    
+    // Filter by category
+    if (activeCategory !== 'All') {
+      templates = templates.filter(t => t.category === activeCategory);
+    }
+    
+    // Filter by search
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      templates = templates.filter(t => 
+        t.label.toLowerCase().includes(query) ||
+        t.description.toLowerCase().includes(query) ||
+        t.category.toLowerCase().includes(query) ||
+        t.rules.toLowerCase().includes(query)
+      );
+    }
+    
+    return templates;
+  }, [activeCategory, searchQuery]);
 
   const handleQuickIdeaSubmit = useCallback(() => {
     if (!quickIdea.trim()) return;
@@ -368,6 +410,296 @@ export default function CustomRulesEditorEnhanced({ value, onChange, disabled }:
 
   const lineCount = value.split('\n').filter(l => l.trim()).length;
   const charCount = value.length;
+
+  // Template Browser Content - shared between Sheet and Drawer
+  const TemplateBrowserContent = () => (
+    <div className="flex flex-col h-full overflow-hidden">
+      {/* Search Bar */}
+      <div className="p-3 sm:p-4 border-b border-border/30 bg-background/50 backdrop-blur-sm">
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Input
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search templates..."
+            className="pl-9 h-10 sm:h-11 bg-background border-border/50"
+          />
+          {searchQuery && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 p-0"
+              onClick={() => setSearchQuery('')}
+            >
+              <X className="w-3 h-3" />
+            </Button>
+          )}
+        </div>
+      </div>
+
+      {/* Category Pills - Horizontal Scroll */}
+      <div className="px-3 sm:px-4 py-2 border-b border-border/30 bg-muted/20">
+        <ScrollArea className="w-full">
+          <div className="flex gap-2 pb-1">
+            {TEMPLATE_CATEGORIES.map((cat) => {
+              const Icon = CATEGORY_ICONS[cat] || Grid3X3;
+              return (
+                <Button
+                  key={cat}
+                  variant={activeCategory === cat ? 'default' : 'outline'}
+                  size="sm"
+                  className={cn(
+                    'h-9 px-3 sm:px-4 whitespace-nowrap gap-1.5 flex-shrink-0 transition-all',
+                    activeCategory === cat 
+                      ? 'bg-primary text-primary-foreground shadow-md' 
+                      : 'bg-background hover:bg-muted'
+                  )}
+                  onClick={() => {
+                    setActiveCategory(cat);
+                    setPreviewTemplate(null);
+                  }}
+                >
+                  <Icon className="w-3.5 h-3.5" />
+                  <span className="text-xs font-medium">{cat}</span>
+                  {cat !== 'All' && (
+                    <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-[10px] bg-background/20">
+                      {VISION_TEMPLATES.filter(t => t.category === cat).length}
+                    </Badge>
+                  )}
+                </Button>
+              );
+            })}
+          </div>
+        </ScrollArea>
+      </div>
+
+      {/* View Toggle (Desktop only) */}
+      {!isMobile && (
+        <div className="px-4 py-2 border-b border-border/30 flex items-center justify-between">
+          <span className="text-xs text-muted-foreground">
+            {filteredTemplates.length} template{filteredTemplates.length !== 1 ? 's' : ''} found
+          </span>
+          <div className="flex gap-1 bg-muted rounded-lg p-1">
+            <Button
+              variant={viewMode === 'grid' ? 'secondary' : 'ghost'}
+              size="sm"
+              className="h-7 w-7 p-0"
+              onClick={() => setViewMode('grid')}
+            >
+              <Grid3X3 className="w-3.5 h-3.5" />
+            </Button>
+            <Button
+              variant={viewMode === 'list' ? 'secondary' : 'ghost'}
+              size="sm"
+              className="h-7 w-7 p-0"
+              onClick={() => setViewMode('list')}
+            >
+              <LayoutList className="w-3.5 h-3.5" />
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Templates Content */}
+      <div className="flex-1 flex overflow-hidden">
+        {/* Template Grid/List */}
+        <ScrollArea className={cn(
+          "flex-1",
+          !isMobile && previewTemplate && "border-r border-border/30"
+        )}>
+          <div className={cn(
+            "p-3 sm:p-4",
+            isMobile || viewMode === 'grid' 
+              ? "grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-3" 
+              : "flex flex-col gap-2"
+          )}>
+            {filteredTemplates.length === 0 ? (
+              <div className="col-span-full flex flex-col items-center justify-center py-12 text-center">
+                <div className="w-16 h-16 rounded-2xl bg-muted/50 flex items-center justify-center mb-4">
+                  <Search className="w-8 h-8 text-muted-foreground/50" />
+                </div>
+                <p className="text-sm font-medium text-muted-foreground">No templates found</p>
+                <p className="text-xs text-muted-foreground/70 mt-1">Try a different search or category</p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="mt-4"
+                  onClick={() => {
+                    setSearchQuery('');
+                    setActiveCategory('All');
+                  }}
+                >
+                  Clear filters
+                </Button>
+              </div>
+            ) : (
+              filteredTemplates.map((template) => {
+                const Icon = template.icon;
+                const isSelected = selectedTemplate === template.id;
+                const isPreviewing = previewTemplate?.id === template.id;
+                
+                if (!isMobile && viewMode === 'list') {
+                  // List view for desktop
+                  return (
+                    <button
+                      key={template.id}
+                      onClick={() => isMobile ? applyTemplate(template) : setPreviewTemplate(template)}
+                      className={cn(
+                        'relative flex items-center gap-4 p-4 rounded-xl border text-left transition-all duration-200 group overflow-hidden w-full',
+                        isPreviewing 
+                          ? 'border-primary bg-primary/10 ring-2 ring-primary/30' 
+                          : isSelected
+                            ? 'border-primary/50 bg-primary/5'
+                            : 'border-border/50 hover:border-primary/40 hover:bg-muted/50'
+                      )}
+                    >
+                      <div className={cn(
+                        'w-12 h-12 rounded-xl flex-shrink-0 flex items-center justify-center bg-gradient-to-br shadow-lg',
+                        template.color
+                      )}>
+                        <Icon className="w-6 h-6 text-white" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <p className="text-sm font-semibold text-foreground">{template.label}</p>
+                          <Badge variant="outline" className="text-[10px]">{template.category}</Badge>
+                          {isSelected && <Check className="w-4 h-4 text-primary" />}
+                        </div>
+                        <p className="text-xs text-muted-foreground line-clamp-1">{template.description}</p>
+                      </div>
+                      <ArrowRight className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />
+                    </button>
+                  );
+                }
+                
+                // Grid view / Mobile view
+                return (
+                  <button
+                    key={template.id}
+                    onClick={() => isMobile ? applyTemplate(template) : setPreviewTemplate(template)}
+                    className={cn(
+                      'relative p-3 sm:p-4 rounded-xl border text-left transition-all duration-200 group overflow-hidden active:scale-[0.98]',
+                      isPreviewing 
+                        ? 'border-primary bg-primary/10 ring-2 ring-primary/30' 
+                        : isSelected
+                          ? 'border-primary/50 bg-primary/5'
+                          : 'border-border/50 hover:border-primary/40 hover:bg-muted/50'
+                    )}
+                  >
+                    <div className={cn(
+                      'absolute inset-0 opacity-0 group-hover:opacity-10 transition-opacity bg-gradient-to-br',
+                      template.color
+                    )} />
+                    <div className="relative space-y-2 sm:space-y-3">
+                      <div className="flex items-start gap-3">
+                        <div className={cn(
+                          'w-10 h-10 sm:w-12 sm:h-12 rounded-xl flex-shrink-0 flex items-center justify-center bg-gradient-to-br shadow-lg',
+                          template.color
+                        )}>
+                          <Icon className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-semibold text-foreground">{template.label}</p>
+                          <div className="flex items-center gap-2 mt-0.5">
+                            <Badge variant="outline" className="text-[10px] px-1.5">{template.category}</Badge>
+                            {isSelected && (
+                              <Badge variant="default" className="text-[10px] px-1.5 bg-primary">Active</Badge>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                      <p className="text-[11px] sm:text-xs text-muted-foreground line-clamp-2">{template.description}</p>
+                      
+                      {/* Mobile: Show Apply button inline */}
+                      {isMobile && (
+                        <div className="flex items-center justify-between pt-1">
+                          <span className="text-[10px] text-muted-foreground flex items-center gap-1">
+                            <Play className="w-3 h-3" /> Tap to apply
+                          </span>
+                          <ArrowRight className="w-4 h-4 text-muted-foreground" />
+                        </div>
+                      )}
+                    </div>
+                  </button>
+                );
+              })
+            )}
+          </div>
+        </ScrollArea>
+
+        {/* Preview Panel - Desktop Only */}
+        {!isMobile && previewTemplate && (
+          <div className="w-80 lg:w-96 flex flex-col bg-muted/10">
+            <div className="p-4 border-b border-border/30 bg-gradient-to-br from-muted/20 to-transparent">
+              <div className="flex items-start gap-3 mb-3">
+                <div className={cn(
+                  'w-14 h-14 rounded-xl flex-shrink-0 flex items-center justify-center bg-gradient-to-br shadow-lg',
+                  previewTemplate.color
+                )}>
+                  <previewTemplate.icon className="w-7 h-7 text-white" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h3 className="font-bold text-lg text-foreground">{previewTemplate.label}</h3>
+                  <Badge variant="outline" className="text-[10px] mt-1">{previewTemplate.category}</Badge>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
+                  onClick={() => setPreviewTemplate(null)}
+                >
+                  <X className="w-4 h-4" />
+                </Button>
+              </div>
+              <p className="text-sm text-muted-foreground">{previewTemplate.description}</p>
+            </div>
+            
+            <ScrollArea className="flex-1 p-4">
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <FileText className="w-4 h-4 text-primary" />
+                  <span className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">
+                    AI Instructions
+                  </span>
+                </div>
+                <div className="p-4 rounded-xl bg-background border border-border/50 font-mono text-xs leading-relaxed text-foreground whitespace-pre-wrap shadow-inner">
+                  {previewTemplate.rules}
+                </div>
+              </div>
+            </ScrollArea>
+            
+            <div className="p-4 border-t border-border/30 bg-background/50 backdrop-blur-sm">
+              <Button 
+                className="w-full h-12 bg-primary hover:bg-primary/90 font-semibold text-base shadow-lg shadow-primary/20"
+                onClick={() => applyTemplate(previewTemplate)}
+              >
+                <Check className="w-5 h-5 mr-2" />
+                Apply Template
+              </Button>
+              <p className="text-[10px] text-center text-muted-foreground mt-2">
+                This will replace your current instructions
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Empty preview state - Desktop only */}
+        {!isMobile && !previewTemplate && (
+          <div className="w-80 lg:w-96 flex items-center justify-center p-6 bg-muted/10">
+            <div className="text-center">
+              <div className="w-20 h-20 rounded-2xl bg-muted/50 flex items-center justify-center mx-auto mb-4">
+                <Target className="w-10 h-10 text-muted-foreground/30" />
+              </div>
+              <p className="text-sm font-medium text-muted-foreground">Select a template</p>
+              <p className="text-xs text-muted-foreground/70 mt-1 max-w-[180px] mx-auto">
+                Click any template to preview its AI instructions
+              </p>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
 
   return (
     <div className="panel border-2 border-primary/30 bg-gradient-to-br from-primary/5 via-transparent to-accent/5 shadow-lg shadow-primary/5">
@@ -443,152 +775,54 @@ export default function CustomRulesEditorEnhanced({ value, onChange, disabled }:
                   <span className="text-[10px] uppercase tracking-wider text-foreground font-semibold">Vision Templates</span>
                   <Badge variant="secondary" className="text-[9px]">{VISION_TEMPLATES.length}</Badge>
                 </div>
-                <Dialog open={templateDialogOpen} onOpenChange={setTemplateDialogOpen}>
-                  <DialogTrigger asChild>
+                {/* Use Drawer on mobile, Sheet on desktop */}
+                {isMobile ? (
+                  <Drawer open={templateDialogOpen} onOpenChange={setTemplateDialogOpen}>
+                    <DrawerTrigger asChild>
+                      <Button variant="outline" size="sm" className="h-6 text-[10px] gap-1 px-2">
+                        <Expand className="w-3 h-3" />
+                        Browse All
+                      </Button>
+                    </DrawerTrigger>
+                    <DrawerContent className="h-[90vh] max-h-[90vh]">
+                      <DrawerHeader className="px-4 py-3 border-b border-border/30">
+                        <div className="flex items-center justify-between">
+                          <DrawerTitle className="flex items-center gap-2 text-base">
+                            <Target className="w-5 h-5 text-primary" />
+                            Vision Templates
+                          </DrawerTitle>
+                          <DrawerClose asChild>
+                            <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                              <X className="w-4 h-4" />
+                            </Button>
+                          </DrawerClose>
+                        </div>
+                      </DrawerHeader>
+                      <TemplateBrowserContent />
+                    </DrawerContent>
+                  </Drawer>
+                ) : (
+                  <Sheet open={templateDialogOpen} onOpenChange={setTemplateDialogOpen}>
+                    <SheetTrigger asChild>
                     <Button variant="outline" size="sm" className="h-6 text-[10px] gap-1 px-2">
                       <Expand className="w-3 h-3" />
                       Browse All
                     </Button>
-                  </DialogTrigger>
-                  <DialogContent className="max-w-4xl max-h-[85vh] p-0 gap-0">
-                    <DialogHeader className="p-4 pb-0">
-                      <DialogTitle className="flex items-center gap-2">
-                        <Target className="w-5 h-5 text-primary" />
-                        Vision Templates
-                        <Badge variant="outline" className="ml-2">{VISION_TEMPLATES.length} Templates</Badge>
-                      </DialogTitle>
-                    </DialogHeader>
-                    
-                    <div className="flex h-[65vh]">
-                      {/* Left: Template Grid */}
-                      <div className="flex-1 border-r border-border/50 flex flex-col">
-                        {/* Category Tabs */}
-                        <div className="p-3 border-b border-border/30">
-                          <ScrollArea className="w-full">
-                            <div className="flex gap-1">
-                              {TEMPLATE_CATEGORIES.map((cat) => (
-                                <Button
-                                  key={cat}
-                                  variant={activeCategory === cat ? 'default' : 'ghost'}
-                                  size="sm"
-                                  className={cn(
-                                    'h-7 text-xs whitespace-nowrap',
-                                    activeCategory === cat && 'bg-primary text-primary-foreground'
-                                  )}
-                                  onClick={() => setActiveCategory(cat)}
-                                >
-                                  {cat}
-                                </Button>
-                              ))}
-                            </div>
-                          </ScrollArea>
+                    </SheetTrigger>
+                    <SheetContent side="right" className="w-full sm:max-w-2xl lg:max-w-4xl xl:max-w-5xl p-0 flex flex-col">
+                      <SheetHeader className="px-4 py-3 border-b border-border/30 flex-shrink-0">
+                        <div className="flex items-center justify-between">
+                          <SheetTitle className="flex items-center gap-2">
+                            <Target className="w-5 h-5 text-primary" />
+                            Vision Templates
+                            <Badge variant="outline" className="ml-2 text-xs">{VISION_TEMPLATES.length} Templates</Badge>
+                          </SheetTitle>
                         </div>
-                        
-                        {/* Template Grid */}
-                        <ScrollArea className="flex-1 p-3">
-                          <div className="grid grid-cols-2 gap-2">
-                            {filteredTemplates.map((template) => {
-                              const Icon = template.icon;
-                              const isSelected = selectedTemplate === template.id;
-                              const isPreviewing = previewTemplate?.id === template.id;
-                              return (
-                                <button
-                                  key={template.id}
-                                  onClick={() => setPreviewTemplate(template)}
-                                  className={cn(
-                                    'relative p-3 rounded-xl border text-left transition-all duration-200 group overflow-hidden',
-                                    isPreviewing 
-                                      ? 'border-primary bg-primary/10 ring-2 ring-primary/30' 
-                                      : isSelected
-                                        ? 'border-primary/50 bg-primary/5'
-                                        : 'border-border/50 hover:border-primary/40 hover:bg-muted/50'
-                                  )}
-                                >
-                                  <div className={cn(
-                                    'absolute inset-0 opacity-0 group-hover:opacity-10 transition-opacity bg-gradient-to-br',
-                                    template.color
-                                  )} />
-                                  <div className="relative space-y-2">
-                                    <div className="flex items-center gap-2">
-                                      <div className={cn(
-                                        'w-9 h-9 rounded-lg flex items-center justify-center bg-gradient-to-br shadow-lg',
-                                        template.color
-                                      )}>
-                                        <Icon className="w-4 h-4 text-white" />
-                                      </div>
-                                      <div className="flex-1 min-w-0">
-                                        <p className="text-sm font-semibold text-foreground truncate">{template.label}</p>
-                                        <p className="text-[10px] text-muted-foreground">{template.category}</p>
-                                      </div>
-                                      {isSelected && (
-                                        <Check className="w-4 h-4 text-primary" />
-                                      )}
-                                    </div>
-                                    <p className="text-[11px] text-muted-foreground line-clamp-2">{template.description}</p>
-                                  </div>
-                                </button>
-                              );
-                            })}
-                          </div>
-                        </ScrollArea>
-                      </div>
-                      
-                      {/* Right: Template Preview */}
-                      <div className="w-80 flex flex-col bg-muted/20">
-                        {previewTemplate ? (
-                          <>
-                            <div className="p-4 border-b border-border/30">
-                              <div className="flex items-center gap-3 mb-3">
-                                <div className={cn(
-                                  'w-12 h-12 rounded-xl flex items-center justify-center bg-gradient-to-br shadow-lg',
-                                  previewTemplate.color
-                                )}>
-                                  <previewTemplate.icon className="w-6 h-6 text-white" />
-                                </div>
-                                <div>
-                                  <h3 className="font-bold text-lg text-foreground">{previewTemplate.label}</h3>
-                                  <Badge variant="outline" className="text-[10px]">{previewTemplate.category}</Badge>
-                                </div>
-                              </div>
-                              <p className="text-sm text-muted-foreground">{previewTemplate.description}</p>
-                            </div>
-                            
-                            <div className="flex-1 p-4 overflow-auto">
-                              <div className="space-y-2">
-                                <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
-                                  AI Instructions Preview
-                                </span>
-                                <div className="p-3 rounded-lg bg-background border border-border/50 font-mono text-xs leading-relaxed text-foreground whitespace-pre-wrap">
-                                  {previewTemplate.rules}
-                                </div>
-                              </div>
-                            </div>
-                            
-                            <div className="p-4 border-t border-border/30">
-                              <Button 
-                                className="w-full h-11 bg-primary hover:bg-primary/90 font-semibold"
-                                onClick={() => applyTemplate(previewTemplate)}
-                              >
-                                <Check className="w-4 h-4 mr-2" />
-                                Apply This Template
-                              </Button>
-                            </div>
-                          </>
-                        ) : (
-                          <div className="flex-1 flex items-center justify-center p-6 text-center">
-                            <div>
-                              <div className="w-16 h-16 rounded-2xl bg-muted/50 flex items-center justify-center mx-auto mb-4">
-                                <Target className="w-8 h-8 text-muted-foreground/50" />
-                              </div>
-                              <p className="text-sm font-medium text-muted-foreground">Select a template</p>
-                              <p className="text-xs text-muted-foreground/70 mt-1">Click any template to preview its rules</p>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </DialogContent>
-                </Dialog>
+                      </SheetHeader>
+                      <TemplateBrowserContent />
+                    </SheetContent>
+                  </Sheet>
+                )}
               </div>
               
               {/* Quick Template Grid - Show first 6 */}
