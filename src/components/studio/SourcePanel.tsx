@@ -9,6 +9,7 @@ import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import InsightTooltip, { FEATURE_TOOLTIPS } from './InsightTooltip';
+import AutoShowTooltip from './AutoShowTooltip';
 import { 
   VIDEO_FORMATS, 
   detectVideoFormat, 
@@ -134,9 +135,15 @@ export default function SourcePanel({ file, onFileChange, fileContent, disabled,
         <div className="flex items-center gap-2">
           <Video className="w-3.5 h-3.5 text-primary" />
           <span className="panel-title">Source Media</span>
-          <InsightTooltip hint={FEATURE_TOOLTIPS['source-upload']} side="right">
-            <HelpCircle className="w-3 h-3 text-muted-foreground hover:text-primary cursor-help transition-colors" />
-          </InsightTooltip>
+          <AutoShowTooltip 
+            hint={FEATURE_TOOLTIPS['source-upload']} 
+            side="right"
+            priority={0}
+            showDelay={1000}
+            hideDelay={7000}
+          >
+            <HelpCircle className="w-3.5 h-3.5 text-muted-foreground hover:text-primary cursor-help transition-colors" />
+          </AutoShowTooltip>
         </div>
         {file && detectedFormat && (
           <div className="flex items-center gap-2">

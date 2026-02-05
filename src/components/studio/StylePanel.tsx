@@ -3,6 +3,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { cn } from '@/lib/utils';
 import { Film, Music, Smartphone, Briefcase, Video, Cpu, Sparkles, Zap, Crown, HelpCircle } from 'lucide-react';
 import InsightTooltip, { FEATURE_TOOLTIPS } from './InsightTooltip';
+import AutoShowTooltip from './AutoShowTooltip';
  
  interface StylePanelProps {
    style: string;
@@ -40,11 +41,17 @@ export default function StylePanel({ style, onStyleChange, model, onModelChange,
       {/* Style presets */}
       <div className="panel">
         <div className="panel-header">
-          <div className="flex items-center gap-2">
+           <div className="flex items-center gap-2">
             <span className="panel-title">Style Presets</span>
-            <InsightTooltip hint={FEATURE_TOOLTIPS['style-presets']} side="right">
-              <HelpCircle className="w-3 h-3 text-muted-foreground hover:text-primary cursor-help transition-colors" />
-            </InsightTooltip>
+            <AutoShowTooltip 
+              hint={FEATURE_TOOLTIPS['style-presets']} 
+              side="right"
+              priority={1}
+              showDelay={2500}
+              hideDelay={7000}
+            >
+              <HelpCircle className="w-3.5 h-3.5 text-muted-foreground hover:text-primary cursor-help transition-colors" />
+            </AutoShowTooltip>
           </div>
         </div>
          <div className="p-3 grid grid-cols-2 sm:grid-cols-3 gap-2">
