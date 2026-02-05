@@ -1,0 +1,4 @@
+ project_id = "bunfknfhytdolxluwjoh"
+ 
+ [functions.process-fcpxml]
+ verify_jwt = false
