@@ -503,19 +503,18 @@ serve(async (req) => {
         .upsert({ id: rateLimitKey, job_count: 1, window_start: now.toISOString() });
     }
 
-    // Create job record
-    const { data: job, error: jobError } = await supabase
-      .from("jobs")
-      .insert({
-        input_filename: fileName,
-        preset,
-        model,
-        style_rules: styleRules,
-        status: "processing",
-        analysis_metadata: analysisMetadata ?? null,
-      })
-      .select()
-      .single();
+     // Create job record
+     const { data: job, error: jobError } = await supabase
+       .from("jobs")
+       .insert({
+         input_filename: fileName,
+         preset,
+         model,
+         style_rules: styleRules,
+         status: "processing",
+       })
+       .select()
+       .single();
 
     if (jobError) {
       console.error("Failed to create job:", jobError);
