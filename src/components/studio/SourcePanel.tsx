@@ -1,6 +1,6 @@
  import { useCallback, useState } from 'react';
  import { useDropzone } from 'react-dropzone';
- import { Upload, FileCode, X, CheckCircle, AlertCircle } from 'lucide-react';
+ import { Upload, FileCode, X, CheckCircle, AlertCircle, Sparkles, Film, Layers, Clock } from 'lucide-react';
  import { cn } from '@/lib/utils';
  import { Button } from '@/components/ui/button';
  
@@ -40,19 +40,29 @@
    const fileInfo = fileContent ? parseInfo(fileContent) : null;
  
    return (
-     <div className="panel h-full">
+    <div className="panel h-full relative overflow-hidden">
+      <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-bl from-primary/5 to-transparent rounded-full blur-2xl" />
+      
        <div className="panel-header">
-         <span className="panel-title">Source Media</span>
-         {file && <CheckCircle className="w-3.5 h-3.5 text-success" />}
+        <div className="flex items-center gap-2">
+          <Film className="w-3.5 h-3.5 text-primary" />
+          <span className="panel-title">Source Media</span>
+        </div>
+        {file && (
+          <div className="flex items-center gap-1.5 text-success">
+            <CheckCircle className="w-3.5 h-3.5" />
+            <span className="text-[10px] font-medium">Loaded</span>
+          </div>
+        )}
        </div>
-       <div className="p-3">
+      <div className="p-4 relative">
          <div
            {...getRootProps()}
            className={cn(
-             'upload-zone min-h-[120px] flex items-center justify-center cursor-pointer',
+            'upload-zone min-h-[140px] flex items-center justify-center cursor-pointer group',
              isDragActive && 'upload-zone-active',
              disabled && 'opacity-50 cursor-not-allowed',
-             file && 'border-primary/30'
+            file && 'border-primary/40 bg-primary/[0.02]'
            )}
          >
            <input {...getInputProps()} />
