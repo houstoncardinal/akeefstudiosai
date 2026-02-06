@@ -46,6 +46,8 @@ import QuickExportBar from '@/components/studio/QuickExportBar';
 import VisualWorkflowIndicator from '@/components/studio/VisualWorkflowIndicator';
 import AIInsightsPanel from '@/components/studio/AIInsightsPanel';
 import AIVibeStudio from '@/components/studio/AIVibeStudio';
+import ClipLibrary, { type MediaClip } from '@/components/studio/ClipLibrary';
+import PostProductionPanel, { type PostProductionSettings, DEFAULT_POST_PRODUCTION } from '@/components/studio/PostProductionPanel';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/components/ui/resizable';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -75,7 +77,9 @@ import {
   FolderOpen,
   Keyboard,
   SlidersHorizontal,
-  Clapperboard
+  Clapperboard,
+  Library,
+  Film,
 } from 'lucide-react';
 import { useUndoRedo } from '@/hooks/useUndoRedo';
 import { useLiveLUTThumbnails } from '@/hooks/useLiveLUTThumbnails';
@@ -129,6 +133,7 @@ const getSessionId = () => {
 
 const toolSections = [
   { id: 'ai-vibe', label: 'AI Vibe', icon: <Sparkles className="w-4 h-4" /> },
+  { id: 'clips', label: 'Clips', icon: <Library className="w-4 h-4" /> },
   { id: 'style', label: 'Style', icon: <Wand2 className="w-4 h-4" /> },
   { id: 'color', label: 'Color', icon: <Palette className="w-4 h-4" /> },
   { id: 'effects', label: 'Effects', icon: <Zap className="w-4 h-4" /> },
@@ -141,6 +146,7 @@ const toolSections = [
   { id: 'shots', label: 'Shots', icon: <Eye className="w-4 h-4" /> },
   { id: 'beats', label: 'Beats', icon: <Music className="w-4 h-4" /> },
   { id: 'intent', label: 'Intent', icon: <Compass className="w-4 h-4" /> },
+  { id: 'postprod', label: 'Post-Prod', icon: <Film className="w-4 h-4" /> },
   { id: 'advanced', label: 'Pro Settings', icon: <SlidersHorizontal className="w-4 h-4" /> },
   { id: 'export', label: 'Export', icon: <Sparkles className="w-4 h-4" /> },
   { id: 'exports', label: 'Exports', icon: <FolderOpen className="w-4 h-4" /> },
@@ -148,6 +154,7 @@ const toolSections = [
 
 const toolIcons: Record<string, React.ReactNode> = {
   'ai-vibe': <Sparkles className="w-3.5 h-3.5" />,
+  clips: <Library className="w-3.5 h-3.5" />,
   style: <Wand2 className="w-3.5 h-3.5" />,
   color: <Palette className="w-3.5 h-3.5" />,
   effects: <Zap className="w-3.5 h-3.5" />,
@@ -160,6 +167,7 @@ const toolIcons: Record<string, React.ReactNode> = {
   shots: <Eye className="w-3.5 h-3.5" />,
   beats: <Music className="w-3.5 h-3.5" />,
   intent: <Compass className="w-3.5 h-3.5" />,
+  postprod: <Film className="w-3.5 h-3.5" />,
   advanced: <SlidersHorizontal className="w-3.5 h-3.5" />,
   export: <Sparkles className="w-3.5 h-3.5" />,
   exports: <FolderOpen className="w-3.5 h-3.5" />,
@@ -232,6 +240,14 @@ export default function Index() {
   const [selectedMotionEffects, setSelectedMotionEffects] = useState<string[]>([]);
   const [selectedTransitionsLib, setSelectedTransitionsLib] = useState<string[]>([]);
   const [lutStack, setLutStack] = useState<StackedLUT[]>([]);
+  
+  // Multi-clip library state
+  const [clipLibrary, setClipLibrary] = useState<MediaClip[]>([]);
+  const [timelineClipIds, setTimelineClipIds] = useState<string[]>([]);
+  
+  // Post-production settings
+  const [postProdSettings, setPostProdSettings] = useState<PostProductionSettings>(DEFAULT_POST_PRODUCTION);
+  
   const previewVideoRef = useRef<HTMLVideoElement | null>(null);
   const lutThumbnails = useLiveLUTThumbnails(previewVideoRef, CINEMATIC_LUTS, { enabled: !!file });
   
@@ -629,6 +645,27 @@ Apply all these settings to create a professional edit. Output valid FCPXML only
         </PanelWrapper>
       </TabsContent>
 
+      <TabsContent value="clips" className="m-0 h-full data-[state=active]:animate-fade-in">
+        <PanelWrapper title="Clip Library" icon={<Library className="w-4 h-4" />}>
+          <ClipLibrary
+            clips={clipLibrary}
+            onClipsChange={setClipLibrary}
+            onClipSelect={(clipId) => {
+              const clip = clipLibrary.find(c => c.id === clipId);
+              if (clip) {
+                setFile(clip.file);
+                trackFeatureUse('clip-select');
+              }
+            }}
+            onAddToTimeline={(clipIds) => {
+              setTimelineClipIds(prev => [...prev, ...clipIds]);
+              trackFeatureUse('add-to-timeline');
+            }}
+            disabled={isProcessing}
+          />
+        </PanelWrapper>
+      </TabsContent>
+
       <TabsContent value="style" className="m-0 h-full data-[state=active]:animate-fade-in">
         <PanelWrapper title="Style" icon={<Wand2 className="w-4 h-4" />}>
           <StylePanel
@@ -774,6 +811,16 @@ Apply all these settings to create a professional edit. Output valid FCPXML only
         </PanelWrapper>
       </TabsContent>
 
+      <TabsContent value="postprod" className="m-0 h-full data-[state=active]:animate-fade-in">
+        <PanelWrapper title="Post-Production" icon={<Film className="w-4 h-4" />}>
+          <PostProductionPanel
+            settings={postProdSettings}
+            onSettingsChange={setPostProdSettings}
+            disabled={isProcessing}
+          />
+        </PanelWrapper>
+      </TabsContent>
+
       <TabsContent value="advanced" className="m-0 h-full data-[state=active]:animate-fade-in">
         <PanelWrapper title="Pro Settings" icon={<SlidersHorizontal className="w-4 h-4" />}>
           <AdvancedSettingsPanel
@@ -856,41 +903,8 @@ Apply all these settings to create a professional edit. Output valid FCPXML only
   };
 
   const renderSidePanel = () => (
-    <>
-      
-      {/* AI Insights */}
-      <div className="mb-4">
-        <AIInsightsPanel
-          file={file}
-          colorGrade={config.colorGrade}
-          effectPreset={config.effectPreset}
-          transitions={config.transitions}
-          style={config.style}
-          directorIntent={config.directorIntent}
-          beatRules={config.beatRules}
-        />
-      </div>
-      
-      {showOutput && (
-        <div className="mb-4">
-          <FeedbackPanel
-            config={config}
-            timelineData={{
-              duration: 180,
-              bpm: detectedBPM || 128,
-              sections: ['Intro', 'Verse', 'Chorus', 'Bridge', 'Outro'],
-            }}
-            showAfterProcessing={showOutput}
-          />
-        </div>
-      )}
-      <div className="mb-4">
-        <CustomRulesEditorEnhanced
-          value={config.customRules}
-          onChange={(customRules) => updateConfig({ customRules })}
-          disabled={isProcessing}
-        />
-      </div>
+    <div className="flex flex-col h-full">
+      {/* Output Panel at top */}
       <OutputPanel
         job={currentJob}
         outputXml={outputXml}
@@ -903,7 +917,46 @@ Apply all these settings to create a professional edit. Output valid FCPXML only
           trackFeatureUse('export-completed');
         }}
       />
-    </>
+      
+      {showOutput && (
+        <div className="my-4">
+          <FeedbackPanel
+            config={config}
+            timelineData={{
+              duration: 180,
+              bpm: detectedBPM || 128,
+              sections: ['Intro', 'Verse', 'Chorus', 'Bridge', 'Outro'],
+            }}
+            showAfterProcessing={showOutput}
+          />
+        </div>
+      )}
+      
+      {/* Spacer to push bottom items down */}
+      <div className="flex-1" />
+      
+      {/* AI Edit Instructions - positioned at bottom right above workflow/insights */}
+      <div className="mb-4">
+        <CustomRulesEditorEnhanced
+          value={config.customRules}
+          onChange={(customRules) => updateConfig({ customRules })}
+          disabled={isProcessing}
+        />
+      </div>
+      
+      {/* AI Insights - bottom */}
+      <div className="mb-4">
+        <AIInsightsPanel
+          file={file}
+          colorGrade={config.colorGrade}
+          effectPreset={config.effectPreset}
+          transitions={config.transitions}
+          style={config.style}
+          directorIntent={config.directorIntent}
+          beatRules={config.beatRules}
+        />
+      </div>
+    </div>
   );
 
   // ══════════════════════════════════════════════════════════
