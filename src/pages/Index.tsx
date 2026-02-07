@@ -859,38 +859,46 @@ Apply all these settings to create a professional edit. Output valid FCPXML only
     </>
   );
 
-  // Quick export handler
+  // Quick export handler - for project files only (XML formats)
+  // Video exports require the Export Dialog for proper rendering
   const handleQuickExport = useCallback((filename: string) => {
     if (!outputXml) return;
     
     const fmt = EXPORT_FORMATS.find(f => f.id === config.exportFormat);
-    const ext = fmt?.extension || '.fcpxml';
     const isProjectFile = fmt?.codec === 'N/A';
-    const mime = isProjectFile ? 'application/xml' : 'video/mp4';
+    
+    // For video formats, we export the project file (FCPXML) instead
+    // since browser-based video rendering requires the Export Dialog
+    const ext = isProjectFile ? (fmt?.extension || '.fcpxml') : '.fcpxml';
+    const actualFilename = filename.replace(/\.[^.]+$/, '') + ext;
+    const mime = 'application/xml';
     
     const blob = new Blob([outputXml], { type: mime });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = filename;
+    a.download = actualFilename;
     a.click();
     URL.revokeObjectURL(url);
     
     addExport({
-      filename,
-      formatId: config.exportFormat,
-      formatName: fmt?.name || config.exportFormat,
+      filename: actualFilename,
+      formatId: isProjectFile ? config.exportFormat : 'fcpxml',
+      formatName: isProjectFile ? (fmt?.name || 'FCPXML') : 'FCPXML Project',
       extension: ext,
       style: config.style,
       model: config.model,
       colorGrade: config.colorGrade,
       sizeBytes: blob.size,
-      content: isProjectFile ? btoa(outputXml) : undefined,
+      content: btoa(outputXml),
     });
     recordExport();
     trackFeatureUse('quick-export');
     
-    toast({ title: 'Export started!', description: filename });
+    const description = isProjectFile 
+      ? actualFilename 
+      : `${actualFilename} (project file - open in video editor for full video export)`;
+    toast({ title: 'Export started!', description });
   }, [outputXml, config, addExport, recordExport, trackFeatureUse, toast]);
 
   // Workflow indicator props
@@ -911,6 +919,9 @@ Apply all these settings to create a professional edit. Output valid FCPXML only
         onNewEdit={handleReset}
         config={config}
         showOutput={showOutput}
+        file={file}
+        videoRef={previewVideoRef}
+        effectsCanvas={null}
         onExportSaved={(record) => {
           addExport(record);
           recordExport();

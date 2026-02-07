@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, forwardRef } from 'react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -18,12 +18,12 @@ import {
   CheckCircle,
   Loader2,
   FolderDown,
-  FileVideo,
+  FileCode,
   Wand2,
   Zap,
-  Clock,
   HardDrive,
   ChevronRight,
+  AlertCircle,
 } from 'lucide-react';
 import { EXPORT_FORMATS } from '@/lib/presets';
 
@@ -38,7 +38,7 @@ interface QuickExportBarProps {
   inputFilename?: string;
 }
 
-export default function QuickExportBar({
+const QuickExportBar = forwardRef<HTMLDivElement, QuickExportBarProps>(({
   outputXml,
   isProcessing,
   progress,
@@ -47,12 +47,16 @@ export default function QuickExportBar({
   onGenerate,
   onExport,
   inputFilename,
-}: QuickExportBarProps) {
+}, ref) => {
   const [showSaveDialog, setShowSaveDialog] = useState(false);
   const [customFilename, setCustomFilename] = useState('');
 
   const selectedFormat = EXPORT_FORMATS.find((f) => f.id === exportFormat);
-  const ext = selectedFormat?.extension || '.fcpxml';
+  const isProjectFormat = selectedFormat?.codec === 'N/A';
+  
+  // For quick export, we always output project files (FCPXML)
+  // Video rendering requires the full Export Dialog
+  const ext = isProjectFormat ? (selectedFormat?.extension || '.fcpxml') : '.fcpxml';
   const baseName = inputFilename?.replace(/\.[^.]+$/, '') || 'akeef_export';
   const suggestedFilename = `${baseName}_edited${ext}`;
 
@@ -70,12 +74,8 @@ export default function QuickExportBar({
 
   // Estimate file size based on format
   const getEstimatedSize = () => {
-    if (!selectedFormat) return '~50 KB';
-    if (selectedFormat.codec === 'N/A') return '~50 KB';
-    const bitrate = parseInt(selectedFormat.bitrate) || 20;
-    const durationMins = 2; // assume 2 min video
-    const sizeMB = (bitrate * durationMins * 60) / 8;
-    return `~${sizeMB.toFixed(0)} MB`;
+    // Project files are typically small
+    return '~50 KB';
   };
 
   if (!canGenerate && !outputXml && !isProcessing) {
@@ -118,7 +118,10 @@ export default function QuickExportBar({
                     <div className="min-w-0">
                       <p className="text-sm font-semibold text-success">Ready to Export</p>
                       <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                        <Badge variant="outline" className="text-[9px]">{selectedFormat?.name}</Badge>
+                        <Badge variant="outline" className="text-[9px]">
+                          <FileCode className="w-2.5 h-2.5 mr-1" />
+                          {isProjectFormat ? selectedFormat?.name : 'FCPXML Project'}
+                        </Badge>
                         <span>•</span>
                         <span className="truncate">{suggestedFilename}</span>
                       </div>
@@ -160,7 +163,7 @@ export default function QuickExportBar({
                       <Download className="w-5 h-5" />
                       Quick Export
                       <Badge variant="secondary" className="ml-1 bg-white/20 text-white text-[9px]">
-                        1-Click
+                        Project
                       </Badge>
                     </Button>
 
@@ -215,7 +218,7 @@ export default function QuickExportBar({
               Save Your Edit
             </DialogTitle>
             <DialogDescription>
-              Choose a name for your exported file
+              Choose a name for your exported project file
             </DialogDescription>
           </DialogHeader>
 
@@ -240,14 +243,11 @@ export default function QuickExportBar({
             <div className="p-3 rounded-lg bg-muted/50 border border-border/50 space-y-2">
               <div className="flex items-center justify-between text-sm">
                 <span className="text-muted-foreground">Format</span>
-                <span className="font-medium">{selectedFormat?.name}</span>
+                <span className="font-medium flex items-center gap-1.5">
+                  <FileCode className="w-3.5 h-3.5" />
+                  {isProjectFormat ? selectedFormat?.name : 'FCPXML Project File'}
+                </span>
               </div>
-              {selectedFormat?.codec !== 'N/A' && (
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">Codec</span>
-                  <span className="font-medium">{selectedFormat?.codec}</span>
-                </div>
-              )}
               <div className="flex items-center justify-between text-sm">
                 <span className="text-muted-foreground flex items-center gap-1">
                   <HardDrive className="w-3 h-3" />
@@ -256,6 +256,19 @@ export default function QuickExportBar({
                 <span className="font-medium">{getEstimatedSize()}</span>
               </div>
             </div>
+
+            {/* Note about video formats */}
+            {!isProjectFormat && (
+              <div className="p-3 rounded-lg bg-accent/10 border border-accent/30">
+                <div className="flex items-start gap-2">
+                  <AlertCircle className="w-4 h-4 text-accent flex-shrink-0 mt-0.5" />
+                  <div className="text-xs text-accent">
+                    <strong>Tip:</strong> For rendered video (MP4/WebM), use the Export button in the Output panel. 
+                    This downloads the project file for editing in Final Cut Pro, Premiere, or DaVinci Resolve.
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Save Button */}
             <Button
@@ -271,4 +284,8 @@ export default function QuickExportBar({
       </Dialog>
     </>
   );
-}
+});
+
+QuickExportBar.displayName = 'QuickExportBar';
+
+export default QuickExportBar;
