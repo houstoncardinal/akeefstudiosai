@@ -50,6 +50,8 @@ interface VideoPreviewPanelProps {
   beatTimestamps?: number[];
   sceneChangeTimestamps?: number[];
   videoRef?: RefObject<HTMLVideoElement | null>;
+  canvasRef?: RefObject<HTMLCanvasElement | null>;
+  onTimeUpdate?: (time: number) => void;
 }
 
 export default function VideoPreviewPanel({
@@ -62,10 +64,13 @@ export default function VideoPreviewPanel({
   beatTimestamps,
   sceneChangeTimestamps,
   videoRef: externalVideoRef,
+  canvasRef: externalCanvasRef,
+  onTimeUpdate,
 }: VideoPreviewPanelProps) {
   const internalVideoRef = useRef<HTMLVideoElement>(null);
   const videoRef = externalVideoRef ?? internalVideoRef;
-  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const internalCanvasRef = useRef<HTMLCanvasElement>(null);
+  const canvasRef = externalCanvasRef ?? internalCanvasRef;
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
@@ -112,7 +117,10 @@ export default function VideoPreviewPanel({
     const video = videoRef.current;
     if (!video) return;
 
-    const handleTimeUpdate = () => setCurrentTime(video.currentTime);
+    const handleTimeUpdate = () => {
+      setCurrentTime(video.currentTime);
+      onTimeUpdate?.(video.currentTime);
+    };
     const handleDurationChange = () => setDuration(video.duration);
     const handleEnded = () => setIsPlaying(false);
 
@@ -125,7 +133,7 @@ export default function VideoPreviewPanel({
       video.removeEventListener('durationchange', handleDurationChange);
       video.removeEventListener('ended', handleEnded);
     };
-  }, [videoUrl]);
+  }, [videoUrl, onTimeUpdate]);
 
   // Periodically capture a frame for histogram when WebGL is active
   useEffect(() => {

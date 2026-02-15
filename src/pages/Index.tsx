@@ -249,6 +249,7 @@ export default function Index() {
   const [postProdSettings, setPostProdSettings] = useState<PostProductionSettings>(DEFAULT_POST_PRODUCTION);
   
   const previewVideoRef = useRef<HTMLVideoElement | null>(null);
+  const previewCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const lutThumbnails = useLiveLUTThumbnails(previewVideoRef, CINEMATIC_LUTS, { enabled: !!file });
   
   // Frame capture for LUT preview system
@@ -284,6 +285,20 @@ export default function Index() {
   // Playback state for shortcuts
   const [isPlaying, setIsPlaying] = useState(false);
   const [playheadPosition, setPlayheadPosition] = useState(0);
+
+  // Sync video playback when timeline playhead changes from EditingCanvas
+  const handlePlayheadFromCanvas = useCallback((time: number) => {
+    setPlayheadPosition(time);
+    const video = previewVideoRef.current;
+    if (video && Math.abs(video.currentTime - time) > 0.5) {
+      video.currentTime = time;
+    }
+  }, []);
+
+  // Sync timeline playhead when video plays
+  const handleVideoTimeUpdate = useCallback((time: number) => {
+    setPlayheadPosition(time);
+  }, []);
 
   // Auto-save functionality
   const { 
@@ -921,7 +936,7 @@ Apply all these settings to create a professional edit. Output valid FCPXML only
         showOutput={showOutput}
         file={file}
         videoRef={previewVideoRef}
-        effectsCanvas={null}
+        effectsCanvas={previewCanvasRef.current}
         onExportSaved={(record) => {
           addExport(record);
           recordExport();
@@ -1019,6 +1034,8 @@ Apply all these settings to create a professional edit. Output valid FCPXML only
                   beatTimestamps={audioAnalysis?.beatTimestamps}
                   sceneChangeTimestamps={videoAnalysis?.sceneChanges.map(sc => sc.timestamp)}
                   videoRef={previewVideoRef}
+                  canvasRef={previewCanvasRef}
+                  onTimeUpdate={handleVideoTimeUpdate}
                 />
                 <EditingCanvas
                   file={file}
@@ -1030,6 +1047,7 @@ Apply all these settings to create a professional edit. Output valid FCPXML only
                   isProcessing={isProcessing}
                   audioAnalysis={audioAnalysis}
                   videoAnalysis={videoAnalysis}
+                  onPlayheadChange={handlePlayheadFromCanvas}
                 />
               </div>
             )}
@@ -1130,6 +1148,8 @@ Apply all these settings to create a professional edit. Output valid FCPXML only
                   beatTimestamps={audioAnalysis?.beatTimestamps}
                   sceneChangeTimestamps={videoAnalysis?.sceneChanges.map(sc => sc.timestamp)}
                   videoRef={previewVideoRef}
+                  canvasRef={previewCanvasRef}
+                  onTimeUpdate={handleVideoTimeUpdate}
                 />
               </div>
 
@@ -1143,6 +1163,7 @@ Apply all these settings to create a professional edit. Output valid FCPXML only
                 isProcessing={isProcessing}
                 audioAnalysis={audioAnalysis}
                 videoAnalysis={videoAnalysis}
+                onPlayheadChange={handlePlayheadFromCanvas}
               />
 
               {/* Tool content */}
@@ -1258,6 +1279,8 @@ Apply all these settings to create a professional edit. Output valid FCPXML only
                     beatTimestamps={audioAnalysis?.beatTimestamps}
                     sceneChangeTimestamps={videoAnalysis?.sceneChanges.map(sc => sc.timestamp)}
                     videoRef={previewVideoRef}
+                    canvasRef={previewCanvasRef}
+                    onTimeUpdate={handleVideoTimeUpdate}
                   />
                   <TimelineVisualizerDetailed
                     fileContent={fileContent}
@@ -1278,7 +1301,7 @@ Apply all these settings to create a professional edit. Output valid FCPXML only
                   audioAnalysis={audioAnalysis}
                   videoAnalysis={videoAnalysis}
                   onClipSelect={(clipId) => clipId && trackFeatureUse('clip-select')}
-                  onPlayheadChange={(time) => setPlayheadPosition(time)}
+                  onPlayheadChange={handlePlayheadFromCanvas}
                 />
               </div>
             </div>

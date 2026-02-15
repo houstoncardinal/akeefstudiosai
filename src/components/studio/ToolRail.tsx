@@ -23,7 +23,9 @@ import {
   Compass,
   SlidersHorizontal,
   Sparkles,
-  FolderOpen
+  FolderOpen,
+  Library,
+  Film,
 } from 'lucide-react';
 
 interface ToolSection {
@@ -54,6 +56,14 @@ const toolGroups: ToolGroup[] = [
     ],
   },
   {
+    id: 'media',
+    label: 'Media',
+    icon: <Library className="w-3.5 h-3.5" />,
+    sections: [
+      { id: 'clips', label: 'Clip Library', icon: <Library className="w-4 h-4" /> },
+    ],
+  },
+  {
     id: 'creative',
     label: 'Creative',
     icon: <Palette className="w-3.5 h-3.5" />,
@@ -72,6 +82,7 @@ const toolGroups: ToolGroup[] = [
     label: 'Output',
     icon: <Sparkles className="w-3.5 h-3.5" />,
     sections: [
+      { id: 'postprod', label: 'Post-Production', icon: <Film className="w-4 h-4" /> },
       { id: 'versions', label: 'Versions', icon: <Layers className="w-4 h-4" /> },
       { id: 'advanced', label: 'Pro Settings', icon: <SlidersHorizontal className="w-4 h-4" /> },
       { id: 'export', label: 'Export', icon: <Sparkles className="w-4 h-4" />, shortcut: '4' },
@@ -96,7 +107,7 @@ export default function ToolRail({
   collapsed = false 
 }: ToolRailProps) {
   const [searchQuery, setSearchQuery] = useState('');
-  const [expandedGroups, setExpandedGroups] = useState<string[]>(['creative', 'automation', 'output']);
+  const [expandedGroups, setExpandedGroups] = useState<string[]>(['ai', 'media', 'creative', 'output']);
 
   // Flatten all sections for search
   const allSections = useMemo(() => 
