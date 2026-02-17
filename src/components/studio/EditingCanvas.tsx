@@ -113,6 +113,14 @@ interface TimelineMarker {
   type: 'scene' | 'beat' | 'user' | 'chapter';
 }
 
+interface ExternalClipData {
+  id: string;
+  name: string;
+  type: 'video' | 'audio' | 'image';
+  duration: number;
+  thumbnail?: string;
+}
+
 interface EditingCanvasProps {
   file: File | null;
   detectedFormat: VideoFormat | null;
@@ -124,6 +132,8 @@ interface EditingCanvasProps {
   // Real analysis data
   audioAnalysis?: AudioAnalysisResult | null;
   videoAnalysis?: VideoAnalysisResult | null;
+  // External clips from clip library
+  externalClips?: ExternalClipData[];
   // Callbacks
   onClipSelect?: (clipId: string | null) => void;
   onPlayheadChange?: (time: number) => void;
@@ -164,6 +174,7 @@ export default function EditingCanvas({
   isProcessing,
   audioAnalysis,
   videoAnalysis,
+  externalClips,
   onClipSelect,
   onPlayheadChange,
 }: EditingCanvasProps) {
@@ -500,7 +511,44 @@ export default function EditingCanvas({
     setHistoryIndex(-1);
   }, [file]);
 
-  // ─── Sync effects from parent when colorGrade/effectPreset change (after init) ───
+  // ─── Add external clips from Clip Library when they arrive ───
+  useEffect(() => {
+    if (!externalClips || externalClips.length === 0 || !clipsInitialized) return;
+
+    // Find clips not already on the timeline
+    const existingIds = new Set(clips.map(c => c.id));
+    const newExternalClips = externalClips.filter(ec => !existingIds.has(`ext-${ec.id}`));
+    if (newExternalClips.length === 0) return;
+
+    const lastClipEnd = clips.reduce((max, c) => Math.max(max, c.start + c.duration), 0);
+    let pos = lastClipEnd + 0.5;
+
+    const addedClips: TimelineClip[] = newExternalClips.map((ec, i) => {
+      const clip: TimelineClip = {
+        id: `ext-${ec.id}`,
+        name: ec.name,
+        start: pos,
+        duration: ec.duration,
+        inPoint: 0,
+        outPoint: ec.duration,
+        track: ec.type === 'audio' ? 2 : 0,
+        type: ec.type === 'image' ? 'image' : ec.type,
+        effects: [],
+        thumbnailUrl: ec.thumbnail,
+        locked: false,
+        muted: false,
+        visible: true,
+        speed: 1,
+        volume: 1,
+      };
+      pos += ec.duration + 0.5;
+      return clip;
+    });
+
+    const newClips = [...clips, ...addedClips];
+    updateClips(newClips, `Added ${addedClips.length} clip(s) from library`);
+  }, [externalClips, clipsInitialized]);
+
   useEffect(() => {
     if (!clipsInitialized || clips.length === 0) return;
 

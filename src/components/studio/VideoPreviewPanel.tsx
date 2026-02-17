@@ -40,6 +40,15 @@ const EFFECT_SETTINGS_MAP: Record<string, EffectSettings> = {
   dynamic_mode: { grainAmount: 0.18, grainSize: 1.4, vignetteAmount: 0.22, vignetteMidpoint: 62, vignetteFeather: 50 },
 };
 
+interface PostProductionOverrides {
+  filmGrain?: number;
+  vignette?: number;
+  globalBrightness?: number;
+  globalContrast?: number;
+  globalSaturation?: number;
+  outputSharpening?: number;
+}
+
 interface VideoPreviewPanelProps {
   file: File | null;
   detectedFormat: VideoFormat | null;
@@ -52,6 +61,7 @@ interface VideoPreviewPanelProps {
   videoRef?: RefObject<HTMLVideoElement | null>;
   canvasRef?: RefObject<HTMLCanvasElement | null>;
   onTimeUpdate?: (time: number) => void;
+  postProduction?: PostProductionOverrides | null;
 }
 
 export default function VideoPreviewPanel({
@@ -66,6 +76,7 @@ export default function VideoPreviewPanel({
   videoRef: externalVideoRef,
   canvasRef: externalCanvasRef,
   onTimeUpdate,
+  postProduction,
 }: VideoPreviewPanelProps) {
   const internalVideoRef = useRef<HTMLVideoElement>(null);
   const videoRef = externalVideoRef ?? internalVideoRef;
@@ -84,8 +95,30 @@ export default function VideoPreviewPanel({
   const [splitPosition, setSplitPosition] = useState(0.5);
   const [histogram, setHistogram] = useState<number[] | null>(null);
 
-  const webglColor = colorSettings ?? DEFAULT_COLOR_SETTINGS;
-  const webglEffects = EFFECT_SETTINGS_MAP[effectPreset] ?? DEFAULT_EFFECT_SETTINGS;
+  // Merge post-production overrides into color settings
+  const webglColor = useMemo<FullColorSettings>(() => {
+    const base = colorSettings ?? DEFAULT_COLOR_SETTINGS;
+    if (!postProduction) return base;
+    return {
+      ...base,
+      contrast: base.contrast * (postProduction.globalContrast ?? 1),
+      saturation: base.saturation * (postProduction.globalSaturation ?? 1),
+      highlights: base.highlights + ((postProduction.globalBrightness ?? 1) - 1) * 30,
+    };
+  }, [colorSettings, postProduction]);
+
+  // Merge post-production effects into WebGL effects
+  const webglEffects = useMemo<EffectSettings>(() => {
+    const base = EFFECT_SETTINGS_MAP[effectPreset] ?? DEFAULT_EFFECT_SETTINGS;
+    if (!postProduction) return base;
+    return {
+      grainAmount: Math.max(base.grainAmount, postProduction.filmGrain ?? 0),
+      grainSize: base.grainSize,
+      vignetteAmount: Math.max(base.vignetteAmount, (postProduction.vignette ?? 0) * 0.8),
+      vignetteMidpoint: base.vignetteMidpoint,
+      vignetteFeather: base.vignetteFeather,
+    };
+  }, [effectPreset, postProduction]);
 
   const { captureFrame, isReady } = useWebGLRenderer(
     canvasRef,
