@@ -353,6 +353,42 @@ export default function Index() {
     }
   }, [file]);
 
+  // Auto-analyze video and audio when a video file is uploaded
+  useEffect(() => {
+    if (!file || !file.type.startsWith('video/')) return;
+
+    let cancelled = false;
+
+    // Auto-run video scene detection
+    (async () => {
+      try {
+        const { analyzeVideo } = await import('@/lib/videoAnalysis');
+        const result = await analyzeVideo(file, 0.5, 0.15);
+        if (!cancelled) {
+          setVideoAnalysis(result);
+        }
+      } catch (err) {
+        console.warn('Auto video analysis failed:', err);
+      }
+    })();
+
+    // Auto-run audio beat detection
+    (async () => {
+      try {
+        const { analyzeAudio } = await import('@/lib/audioAnalysis');
+        const result = await analyzeAudio(file, 50);
+        if (!cancelled) {
+          setAudioAnalysis(result);
+          setDetectedBPM(result.bpm);
+        }
+      } catch (err) {
+        console.warn('Auto audio analysis failed:', err);
+      }
+    })();
+
+    return () => { cancelled = true; };
+  }, [file]);
+
   // Update custom rules when style changes
   useEffect(() => {
     const selectedStyle = STYLE_PRESETS.find(p => p.id === config.style);
