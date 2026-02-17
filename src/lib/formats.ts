@@ -416,16 +416,22 @@ export function getAllSupportedExtensions(): string[] {
 // Get accept object for dropzone
 export function getDropzoneAccept(): Record<string, string[]> {
   return {
-    'video/*': ['.mov', '.mp4', '.avi', '.webm', '.mxf', '.mkv', '.m4v', '.mpg', '.mpeg'],
+    'video/*': ['.mov', '.mp4', '.avi', '.webm', '.mxf', '.mkv', '.m4v', '.mpg', '.mpeg', '.wmv', '.flv', '.3gp', '.3g2', '.ts', '.mts', '.m2ts', '.vob', '.ogv', '.f4v', '.asf', '.divx', '.dv', '.rm', '.rmvb'],
     'video/quicktime': ['.mov'],
     'video/mp4': ['.mp4', '.m4v'],
     'video/x-msvideo': ['.avi'],
     'video/webm': ['.webm'],
     'video/x-matroska': ['.mkv'],
+    'video/x-ms-wmv': ['.wmv'],
+    'video/x-flv': ['.flv'],
+    'video/3gpp': ['.3gp', '.3g2'],
+    'video/mp2t': ['.ts', '.mts', '.m2ts'],
     'application/xml': ['.fcpxml', '.xml'],
     'text/xml': ['.fcpxml', '.xml'],
     'application/octet-stream': ['.braw', '.r3d', '.ari', '.fcpxml'],
     'application/mxf': ['.mxf'],
+    'audio/*': ['.mp3', '.wav', '.aac', '.flac', '.ogg', '.m4a', '.wma'],
+    'image/*': ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.tiff', '.svg'],
   };
 }
 

@@ -65,13 +65,16 @@ export default function SourcePanel({ file, onFileChange, fileContent, disabled,
       
       if (!format) {
         const ext = f.name.split('.').pop()?.toLowerCase();
-        if (f.type.startsWith('video/') || ['mov', 'mp4', 'avi', 'mkv', 'webm', 'mxf'].includes(ext || '')) {
+        const videoExts = ['mov', 'mp4', 'avi', 'mkv', 'webm', 'mxf', 'wmv', 'flv', '3gp', '3g2', 'ts', 'mts', 'm2ts', 'vob', 'ogv', 'f4v', 'asf', 'divx', 'dv', 'rm', 'rmvb', 'm4v', 'mpg', 'mpeg'];
+        const audioExts = ['mp3', 'wav', 'aac', 'flac', 'ogg', 'm4a', 'wma'];
+        const imageExts = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'tiff', 'svg'];
+        if (f.type.startsWith('video/') || videoExts.includes(ext || '') || f.type.startsWith('audio/') || audioExts.includes(ext || '') || f.type.startsWith('image/') || imageExts.includes(ext || '')) {
           const mp4Format = VIDEO_FORMATS.find(v => v.id === 'mp4') || null;
           setDetectedFormat(mp4Format);
           onFileChange(f);
           onFormatDetected?.(mp4Format);
         } else {
-          setError('Could not detect video format. Please try a different file.');
+          setError('Unsupported file type. Please upload a video, audio, or image file.');
         }
         return;
       }
@@ -278,7 +281,7 @@ export default function SourcePanel({ file, onFileChange, fileContent, disabled,
                 Drag & drop or tap to browse
               </p>
               <div className="flex flex-wrap justify-center gap-1">
-                {['MOV', 'MP4', 'ProRes', 'HEVC', 'FCPXML', 'RAW'].map((fmt) => (
+                {['MOV', 'MP4', 'AVI', 'MKV', 'WebM', 'WMV', 'ProRes', 'HEVC', 'FCPXML', 'RAW'].map((fmt) => (
                   <Badge 
                     key={fmt} 
                     variant="outline" 
