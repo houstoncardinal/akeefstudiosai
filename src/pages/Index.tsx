@@ -510,6 +510,30 @@ ${Object.keys(shotRules).length > 0 ? Object.entries(shotRules).map(([key, value
 ${config.directorIntent ? `Mode: ${config.directorIntent}` : 'None'}
 ${config.customIntent ? `Custom Vision: ${config.customIntent}` : ''}
 
+=== MOTION EFFECTS ===
+${selectedMotionEffects.length > 0 ? selectedMotionEffects.map(e => `- ${e.replace(/_/g, ' ')}`).join('\n') : 'None selected'}
+
+=== TRANSITIONS LIBRARY ===
+${selectedTransitionsLib.length > 0 ? selectedTransitionsLib.map(t => `- ${t.replace(/_/g, ' ')}`).join('\n') : 'Using preset defaults'}
+
+=== ADVANCED SETTINGS ===
+Sharpening: ${advancedSettings.sharpening?.amount ?? 'default'}
+Noise Reduction: ${advancedSettings.noiseReduction?.luminance ?? 'default'}
+Color Space: ${advancedSettings.output?.colorSpace ?? 'rec709'}
+Bit Depth: ${advancedSettings.output?.bitDepth ?? '10'}
+Film Grain: ${advancedSettings.filmEmulation?.grain?.amount ?? 0}
+Halation: ${advancedSettings.filmEmulation?.halation?.amount ?? 0}
+
+=== POST-PRODUCTION ===
+Audio Normalization: ${postProdSettings.audioNormalization ? `${postProdSettings.audioNormalizationTarget} LUFS` : 'Off'}
+Audio EQ: ${postProdSettings.audioEQ}
+Film Grain: ${Math.round(postProdSettings.filmGrain * 100)}%
+Vignette: ${Math.round(postProdSettings.vignette * 100)}%
+Motion Blur: ${postProdSettings.motionBlur ? `${Math.round(postProdSettings.motionBlurAmount * 100)}%` : 'Off'}
+Stabilization: ${postProdSettings.stabilization ? `${Math.round(postProdSettings.stabilizationStrength * 100)}%` : 'Off'}
+AI Upscale: ${postProdSettings.aiUpscale ? 'On' : 'Off'}
+AI Denoising: ${postProdSettings.aiDenoising ? 'On' : 'Off'}
+
 === GRAPHICS & TITLES ===
 ${graphics.length > 0 ? graphics.map(g => `- ${g?.name}: ${g?.description}`).join('\n') : 'No graphics selected'}
 
@@ -1072,6 +1096,14 @@ Apply all these settings to create a professional edit. Output valid FCPXML only
                   videoRef={previewVideoRef}
                   canvasRef={previewCanvasRef}
                   onTimeUpdate={handleVideoTimeUpdate}
+                  postProduction={{
+                    filmGrain: postProdSettings.filmGrain,
+                    vignette: postProdSettings.vignette,
+                    globalBrightness: postProdSettings.globalBrightness,
+                    globalContrast: postProdSettings.globalContrast,
+                    globalSaturation: postProdSettings.globalSaturation,
+                    outputSharpening: postProdSettings.outputSharpening,
+                  }}
                 />
                 <EditingCanvas
                   file={file}
@@ -1084,6 +1116,10 @@ Apply all these settings to create a professional edit. Output valid FCPXML only
                   audioAnalysis={audioAnalysis}
                   videoAnalysis={videoAnalysis}
                   onPlayheadChange={handlePlayheadFromCanvas}
+                  externalClips={timelineClipIds.map(id => {
+                    const clip = clipLibrary.find(c => c.id === id);
+                    return clip ? { id: clip.id, name: clip.name, type: clip.type, duration: clip.duration, thumbnail: clip.thumbnail } : null;
+                  }).filter(Boolean) as any[]}
                 />
               </div>
             )}
@@ -1186,6 +1222,14 @@ Apply all these settings to create a professional edit. Output valid FCPXML only
                   videoRef={previewVideoRef}
                   canvasRef={previewCanvasRef}
                   onTimeUpdate={handleVideoTimeUpdate}
+                  postProduction={{
+                    filmGrain: postProdSettings.filmGrain,
+                    vignette: postProdSettings.vignette,
+                    globalBrightness: postProdSettings.globalBrightness,
+                    globalContrast: postProdSettings.globalContrast,
+                    globalSaturation: postProdSettings.globalSaturation,
+                    outputSharpening: postProdSettings.outputSharpening,
+                  }}
                 />
               </div>
 
@@ -1200,6 +1244,10 @@ Apply all these settings to create a professional edit. Output valid FCPXML only
                 audioAnalysis={audioAnalysis}
                 videoAnalysis={videoAnalysis}
                 onPlayheadChange={handlePlayheadFromCanvas}
+                externalClips={timelineClipIds.map(id => {
+                  const clip = clipLibrary.find(c => c.id === id);
+                  return clip ? { id: clip.id, name: clip.name, type: clip.type, duration: clip.duration, thumbnail: clip.thumbnail } : null;
+                }).filter(Boolean) as any[]}
               />
 
               {/* Tool content */}
@@ -1317,6 +1365,14 @@ Apply all these settings to create a professional edit. Output valid FCPXML only
                     videoRef={previewVideoRef}
                     canvasRef={previewCanvasRef}
                     onTimeUpdate={handleVideoTimeUpdate}
+                    postProduction={{
+                      filmGrain: postProdSettings.filmGrain,
+                      vignette: postProdSettings.vignette,
+                      globalBrightness: postProdSettings.globalBrightness,
+                      globalContrast: postProdSettings.globalContrast,
+                      globalSaturation: postProdSettings.globalSaturation,
+                      outputSharpening: postProdSettings.outputSharpening,
+                    }}
                   />
                   <TimelineVisualizerDetailed
                     fileContent={fileContent}
@@ -1338,6 +1394,10 @@ Apply all these settings to create a professional edit. Output valid FCPXML only
                   videoAnalysis={videoAnalysis}
                   onClipSelect={(clipId) => clipId && trackFeatureUse('clip-select')}
                   onPlayheadChange={handlePlayheadFromCanvas}
+                  externalClips={timelineClipIds.map(id => {
+                    const clip = clipLibrary.find(c => c.id === id);
+                    return clip ? { id: clip.id, name: clip.name, type: clip.type, duration: clip.duration, thumbnail: clip.thumbnail } : null;
+                  }).filter(Boolean) as any[]}
                 />
               </div>
             </div>
